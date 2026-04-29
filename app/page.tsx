@@ -63,7 +63,8 @@ export default function VisualOffice() {
 
   return (
     <div className="flex h-screen text-sm font-sans relative overflow-hidden">
-      <style>{`body { background-image: url('/background.png'); background-size: cover; background-position: center; background-repeat: no-repeat; }`}</style>
+      <style>{`body { background-image: url('/background.jpg'); background-size: cover; background-position: center; background-repeat: no-repeat; }`}</style>
+      
       <div className="absolute inset-0 bg-[#0A0A0B]/50 z-0"></div>
       
       {/* LEFT */}
@@ -77,27 +78,19 @@ export default function VisualOffice() {
         <div className="flex-1"><div className="text-[8px] text-gray-500 text-center mb-2">AGENTS</div>{aiAgents.map(a => <div key={a.name} className="flex flex-col items-center gap-1 mb-2"><span className={`w-2 h-2 rounded-full ${getDot(a.status)}`}></span><span className="text-white text-[8px]">{a.name}</span></div>)}</div>
       </div>
 
-      {/* MAIN - No container around tiles */}
+      {/* MAIN */}
       <div className="flex-1 flex p-2 gap-5 overflow-hidden z-10">
         {columns.map(col => {
           const style = getColumnStyle(col.name);
           return (
             <div key={col.name} className="flex-1 min-w-0 flex flex-col">
-              <div className="flex items-center gap-2 mb-2">
-                <div className={`w-1 h-4 ${style.bar} rounded-full`}></div>
-                <span className="text-white font-semibold text-xs">{col.name}</span>
-                <span className="text-gray-400 text-xs">{col.count}</span>
-              </div>
-              {/* Just tiles directly - no container */}
-              <div className="flex-1 space-y-2 overflow-y-auto">
+              <div className="flex items-center gap-2 mb-2"><div className={`w-1 h-4 ${style.bar} rounded-full`}></div><span className="text-white font-semibold text-xs">{col.name}</span><span className="text-gray-400 text-xs">{col.count}</span></div>
+              <div className={`${cardStyle} flex-1 p-3 space-y-2 overflow-y-auto`}>
                 {tasks[col.name].map(task => (
                   <div key={task.id} className={`bg-[rgba(30,30,35,0.8)] p-2 rounded border border-white/5 ${style.glow}`}>
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <span className={`w-1.5 h-1.5 rounded-full ${style.dot}`}></span>
-                      {task.assignee && <span className="text-cyan-400 text-[10px] font-mono">{task.assignee}</span>}
-                    </div>
+                    <div className="flex items-center gap-1.5 mb-1"><span className={`w-1.5 h-1.5 rounded-full ${style.dot}`}></span>{task.assignee && <span className="text-cyan-400 text-[10px] font-mono">{task.assignee}</span>}</div>
                     <p className="text-white text-xs font-medium truncate">{task.title}</p>
-                    {task.tags && <div className="flex gap-1 mt-1">{task.tags.map(t => <span key={t} className="text-[8px] bg-white/5 text-gray-400 px-1.5 py-0.5 rounded">{t}</span>)}</div>}
+                    {task.tags && <div className="flex gap-1 mt-1.5">{task.tags.map(t => <span key={t} className="text-[8px] bg-white/5 text-gray-400 px-1.5 py-0.5 rounded">{t}</span>)}</div>}
                   </div>
                 ))}
               </div>
