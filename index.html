@@ -355,6 +355,7 @@
             <div class="w-1 h-4 ${col.bar} rounded-full"></div>
             <span class="text-white font-semibold text-xs">${col.name}</span>
             <span class="text-gray-400 text-xs">${colTasks.length}</span>
+            <button onclick="createNewTask('${col.name}')" class="ml-auto text-gray-400 hover:text-white text-lg font-bold">+</button>
           </div>
           <div class="flex-1 space-y-2 overflow-y-auto drop-zone" data-column="${col.name}">
             ${colTasks.map(task => renderTaskCard(task, col)).join('')}
@@ -672,8 +673,103 @@
       return `Unknown command: "${cmd}". Type "help" for available commands.`;
     }
     
+    // ============ CREATE TASK & MODAL FUNCTIONS ============
+    function saveTasks() {
+      localStorage.setItem(CONFIG.storageKey, JSON.stringify(tasks));
+    }
+
+    function createNewTask(columnName) {
+      const newTask = {
+        id: String(Date.now()),
+        task_name: 'New Task',
+        assigned_agent: null,
+        status: 'todo',
+        priority: 'medium',
+        tags: []
+      };
+      if (!tasks[columnName]) {
+        tasks[columnName] = [];
+      }
+      tasks[columnName].push(newTask);
+      saveTasks();
+      renderAll();
+      // Delay to ensure render completes
+      setTimeout(() => {
+        openEditModal(newTask.id);
+      }, 50);
+    }
+
+    function openEditModal(taskId) {
+      // Find task
+      let task = null;
+      let colName = null;
+      for (const col of columns) {
+        const t = (tasks[col.name] || []).find(x => x.id === taskId);
+        if (t) {
+          task = t;
+          colName = col.name;
+          break;
+        }
+      }
+      if (!task) return;
+      document.getElementById('editTaskId').value = task.id;
+      document.getElementById('editTaskName').value = task.task_name;
+      document.getElementById('editModal').classList.remove('hidden');
+      document.getElementById('editModal').classList.add('flex');
+    }
+
+    function closeEditModal() {
+      document.getElementById('editModal').classList.add('hidden');
+      document.getElementById('editModal').classList.remove('flex');
+    }
+
+    function saveTaskEdit() {
+      const taskId = document.getElementById('editTaskId').value;
+      const newName = document.getElementById('editTaskName').value.trim();
+      // Find task and update
+      for (const col of columns) {
+        const task = (tasks[col.name] || []).find(x => x.id === taskId);
+        if (task) {
+          task.task_name = newName || 'Untitled';
+          saveTasks();
+          renderAll();
+          closeEditModal();
+          return;
+        }
+      }
+    }
+
+    function deleteTask() {
+      const taskId = document.getElementById('editTaskId').value;
+      for (const col of columns) {
+        const idx = (tasks[col.name] || []).findIndex(x => x.id === taskId);
+        if (idx !== -1) {
+          tasks[col.name].splice(idx, 1);
+          saveTasks();
+          renderAll();
+          closeEditModal();
+          return;
+        }
+      }
+    }
+
     // ============ START ============
     init();
   </script>
+  <!-- Edit Task Modal -->
+  <div id="editModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50">
+    <div class="bg-gray-800 rounded-lg p-4 w-80 border border-gray-600">
+      <h3 class="text-white text-sm font-semibold mb-3">Edit Task</h3>
+      <input type="hidden" id="editTaskId">
+      <input type="text" id="editTaskName" class="w-full bg-gray-700 text-white rounded px-3 py-2 mb-4 text-sm focus:outline-none focus:border-cyan-500">
+      <div class="flex justify-between">
+        <button onclick="deleteTask()" class="px-3 py-1.5 bg-red-700 hover:bg-red-600 text-white rounded text-xs">Delete</button>
+        <div class="flex gap-2">
+          <button onclick="closeEditModal()" class="px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white rounded text-xs">Cancel</button>
+          <button onclick="saveTaskEdit()" class="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-xs">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
