@@ -5,675 +5,314 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mission Control</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap');
-    
     body {
       font-family: 'Inter', sans-serif;
-      background-image: url('./background.png');
+      /* Background setup: Matte black/Luxury vibe */
+      background-color: #0a0a0b;
+      background-image: url('https://images.unsplash.com/photo-1464039397811-e7aec7d3a299?auto=format&fit=crop&w=1920&q=80'); 
       background-size: cover;
       background-position: center;
       background-repeat: no-repeat;
+      min-height: 100vh;
     }
-    
     .font-mono { font-family: 'JetBrains Mono', monospace; }
-    
-    .card {
-      background: rgba(15, 15, 17, 0.7);
+    .glass {
+      background: rgba(15, 15, 17, 0.85);
       backdrop-filter: blur(24px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 0.5rem;
+      border: 1px solid rgba(255, 255, 255, 0.08);
     }
-    
-    .task-card {
-      background: rgba(30, 30, 35, 0.8);
+    .card {
+      background: rgba(30, 30, 35, 0.9);
       border: 1px solid rgba(255, 255, 255, 0.05);
-      border-radius: 0.375rem;
-      padding: 0.5rem;
-      cursor: grab;
-      transition: transform 0.2s, box-shadow 0.2s;
+      border-radius: 0.5rem;
+      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
     }
-    
-    .task-card:hover {
+    .card:hover {
       transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      border-color: rgba(6, 182, 212, 0.3);
     }
-    
-    .task-card.dragging {
+    .card.dragging {
       opacity: 0.5;
-      cursor: grabbing;
     }
-    
-    .task-card[contenteditable="true"]:focus {
-      outline: 1px solid #22c55e;
-      background: rgba(30, 30, 35, 1);
+    .columns-container {
+      display: flex;
+      gap: 1.25rem;
+      align-items: stretch;
+      height: 100%;
     }
-    
-    .glow-inbox { box-shadow: 0 0 12px rgba(59, 130, 246, 0.3); }
-    .glow-assigned { box-shadow: 0 0 12px rgba(168, 85, 247, 0.3); }
-    .glow-progress { box-shadow: 0 0 12px rgba(249, 115, 22, 0.3); }
-    .glow-review { box-shadow: 0 0 12px rgba(234, 179, 8, 0.3); }
-    .glow-done { box-shadow: 0 0 12px rgba(34, 197, 94, 0.3); }
-    
-    .dot-online { background-color: #22c55e; box-shadow: 0 0 8px rgba(34, 197, 94, 0.8); }
-    .dot-busy { background-color: #ef4444; }
-    .dot-away { background-color: #6b7280; }
-    
-    .status-online { background-color: #22c55e; box-shadow: 0 0 8px rgba(0, 229, 255, 0.8); }
-    
-    .overlay {
-      position: absolute;
-      inset: 0;
-      background: rgba(10, 10, 11, 0.5);
-      z-index: 0;
+    .column {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 300px;
     }
-    
-    .bar-inbox { background-color: #3b82f6; }
-    .bar-assigned { background-color: #a855f7; }
-    .bar-progress { background-color: #f97316; }
-    .bar-review { background-color: #eab308; }
-    .bar-done { background-color: #22c55e; }
-    
-    .dot-inbox { background-color: #3b82f6; }
-    .dot-assigned { background-color: #a855f7; }
-    .dot-progress { background-color: #f97316; }
-    .dot-review { background-color: #eab308; }
-    .dot-done { background-color: #22c55e; }
-    
-    /* Pulse animation for active tasks */
-    @keyframes pulse-task {
-      0%, 100% { box-shadow: 0 0 12px rgba(249, 115, 22, 0.3); }
-      50% { box-shadow: 0 0 20px rgba(249, 115, 22, 0.6); }
+    .column-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      padding-bottom: 2rem;
     }
-    
-    .task-active {
-      animation: pulse-task 2s ease-in-out infinite;
-    }
-    
-    /* Drop zone highlight */
-    .drop-zone-active {
-      background: rgba(255, 255, 255, 0.05);
-      border: 2px dashed rgba(255, 255, 255, 0.3);
-    }
-    
-    /* Agent badges */
+    /* Feature: Cyan badge for assigned agent */
     .agent-badge {
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 8px;
-      font-weight: bold;
+      background: rgba(6, 182, 212, 0.15);
+      color: #22d3ee;
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      font-size: 0.7rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 0.25rem;
+      font-weight: 600;
+      display: inline-block;
+      margin-bottom: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
     }
-    
-    .agent-jarvis { background: linear-gradient(135deg, #06b6d4, #3b82f6); }
-    .agent-jade { background: linear-gradient(135deg, #10b981, #059669); }
-    .agent-blaze { background: linear-gradient(135deg, #f97316, #dc2626); }
-    .agent-nova { background: linear-gradient(135deg, #8b5cf6, #ec4899); }
-    .agent-sage { background: linear-gradient(135deg, #eab308, #84cc16); }
-    .agent-axel { background: linear-gradient(135deg, #64748b, #475569); }
-    
-    /* Command console */
-    .console-input {
-      background: rgba(0, 0, 0, 0.5);
+    /* Tag pills */
+    .tag-pill {
+      background: rgba(255, 255, 255, 0.05);
+      color: #94a3b8;
+      font-size: 0.65rem;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      margin-right: 0.35rem;
+      display: inline-block;
       border: 1px solid rgba(255, 255, 255, 0.1);
-      color: #00e5ff;
     }
-    
-    .console-input::placeholder {
-      color: rgba(255, 255, 255, 0.3);
-    }
-    
-    .console-input:focus {
-      outline: none;
-      border-color: #00e5ff;
+    .modal-backdrop {
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(8px);
     }
   </style>
 </head>
-<body class="h-screen text-sm font-sans relative overflow-hidden flex flex-col">
-  <div class="overlay"></div>
-  
-  <!-- MAIN CONTENT -->
-  <div class="flex-1 flex p-2 gap-5 relative z-10 overflow-hidden">
-    <!-- LEFT SIDEBAR -->
-    <div class="w-16 card m-2 flex flex-col items-center py-4">
-      <div class="w-8 h-8 bg-gradient-to-br from-cyan-400 to-blue-500 rounded flex items-center justify-center text-white font-bold text-sm mb-6">N</div>
-      
-      <div class="mb-6">
-        <div class="text-[8px] text-gray-400 text-center mb-1">JARVIS</div>
-        <div class="flex items-center gap-1">
-          <span class="w-2 h-2 status-online rounded-full animate-pulse"></span>
-          <span class="text-[8px] text-cyan-400 font-mono">ONLINE</span>
-        </div>
-      </div>
-      
-      <div class="mb-4">
-        <div class="text-[8px] text-gray-500 text-center mb-2">HUMAN</div>
-        <div class="flex flex-col items-center gap-1">
-          <span class="w-2 h-2 dot-online rounded-full"></span>
-          <span class="text-white text-[8px]">K3n</span>
-        </div>
-      </div>
-      
-      <div class="flex-1">
-        <div class="text-[8px] text-gray-500 text-center mb-2">AGENTS</div>
-        <div class="flex flex-col items-center gap-2" id="agent-status">
-          <!-- Agent status rendered by JS -->
-        </div>
+<body class="text-gray-200">
+
+  <header class="glass p-4 flex justify-between items-center sticky top-0 z-40">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 bg-cyan-600 rounded flex items-center justify-center font-bold text-black shadow-[0_0_15px_rgba(8,145,178,0.4)]">J</div>
+      <div>
+        <h1 class="text-xl font-bold tracking-tight text-white">MISSION CONTROL</h1>
+        <p class="text-[10px] text-cyan-500 font-mono tracking-[0.2em] uppercase">System Live</p>
       </div>
     </div>
-    
-    <!-- MAIN CONTENT - KANBAN -->
-    <div class="flex-1 flex p-2 gap-5 overflow-hidden z-10" id="kanban">
-      <!-- Columns rendered by JS -->
+    <div class="flex gap-3">
+      <button onclick="openSettingsModal()" class="px-4 py-2 glass hover:bg-gray-800 rounded-md text-sm font-medium transition flex items-center gap-2">
+        <span>⚙️</span> Settings
+      </button>
     </div>
-    
-    <!-- RIGHT SIDEBAR -->
-    <div class="w-48 card m-2 p-4">
-      <div class="text-gray-400 text-[10px] font-bold mb-4 flex items-center gap-2">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-        </svg>
-        SCHEDULED
+  </header>
+
+  <main class="p-6 h-[calc(100vh-88px)] overflow-x-auto">
+    <div id="board" class="columns-container h-full">
       </div>
-      
-      <div class="space-y-4" id="jobs">
-        <!-- Jobs rendered by JS -->
-      </div>
-      
-      <div class="mt-auto pt-4 border-t border-white/10">
-        <div class="text-[8px] text-gray-500 text-center">
-          MISSION CONTROL<br>
-          <span class="text-cyan-400">© 2026</span>
+  </main>
+
+  <div id="settingsModal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-50">
+    <div class="glass rounded-xl p-8 w-[450px] max-w-full shadow-2xl">
+      <h2 class="text-xl font-bold mb-2 text-white">Dashboard Settings</h2>
+      <p class="text-xs text-gray-400 mb-6 uppercase tracking-widest">Configuration / Column Mapping</p>
+      <div id="columnSettings" class="space-y-4 mb-8">
         </div>
+      <div class="flex justify-end gap-3">
+        <button onclick="closeSettingsModal()" class="px-5 py-2.5 bg-transparent hover:text-white transition text-sm font-medium text-gray-400">Discard</button>
+        <button onclick="saveSettings()" class="px-6 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-md text-sm font-bold transition shadow-lg shadow-cyan-900/20">Commit Changes</button>
       </div>
     </div>
   </div>
-  
-  <!-- COMMAND CONSOLE -->
-  <div class="p-2 relative z-10">
-    <div class="card p-2 flex gap-2">
-      <span class="text-cyan-400 text-xs font-mono pt-1">❯</span>
-      <input 
-        type="text" 
-        id="command-input"
-        class="console-input flex-1 px-3 py-1 rounded text-xs font-mono" 
-        placeholder="Type command... (e.g., 'add task: Fix bug in status')"
-        autocomplete="off"
-      >
-      <button id="send-command" class="bg-cyan-500/20 text-cyan-400 px-3 py-1 rounded text-xs hover:bg-cyan-500/30 transition">SEND</button>
+
+  <div id="editModal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-50">
+    <div class="glass rounded-xl p-8 w-[520px] max-w-full shadow-2xl">
+      <h2 class="text-xl font-bold mb-2 text-white">Task Protocol</h2>
+      <p class="text-xs text-gray-400 mb-6 uppercase tracking-widest">Editor / Metadata Update</p>
+      <input type="hidden" id="editTaskId">
+      <div class="space-y-5">
+        <div>
+          <label class="block text-[10px] font-bold text-cyan-500 uppercase tracking-widest mb-1.5">Objective Title</label>
+          <input type="text" id="editTitle" class="w-full bg-black/40 border border-white/10 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:border-cyan-500 transition">
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-cyan-500 uppercase tracking-widest mb-1.5">Briefing / Description</label>
+          <textarea id="editDescription" rows="4" class="w-full bg-black/40 border border-white/10 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:border-cyan-500 transition"></textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-[10px] font-bold text-cyan-500 uppercase tracking-widest mb-1.5">Asset Assigned</label>
+            <select id="editAssignedTo" class="w-full bg-black/40 border border-white/10 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:border-cyan-500 transition">
+              <option value="">None</option>
+              <option value="JARVIS">JARVIS</option>
+              <option value="K3n">K3n</option>
+              <option value="Rookie">Rookie</option>
+              <option value="Raccoon">Raccoon</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold text-cyan-500 uppercase tracking-widest mb-1.5">Identifiers (Tags)</label>
+            <input type="text" id="editTags" class="w-full bg-black/40 border border-white/10 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:border-cyan-500 transition" placeholder="tag1, tag2">
+          </div>
+        </div>
+      </div>
+      <div class="flex justify-between mt-10">
+        <button onclick="deleteTask()" class="px-5 py-2.5 bg-red-950/40 text-red-400 hover:bg-red-900/60 border border-red-900/30 rounded-md text-xs font-bold transition">TERMINATE TASK</button>
+        <div class="flex gap-3">
+          <button onclick="closeEditModal()" class="px-5 py-2.5 text-sm font-medium text-gray-400 hover:text-white transition">Exit</button>
+          <button onclick="saveTaskEdit()" class="px-6 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-md text-sm font-bold transition">Update System</button>
+        </div>
+      </div>
     </div>
   </div>
 
   <script>
-    // ============ CONFIGURATION ============
-    const CONFIG = {
-      pollInterval: 30000, // 30 seconds
-      storageKey: 'mission-control-tasks',
-      webhookUrl: null // Set to your OpenClaw webhook URL
-    };
-    
-    // ============ AGENT DEFINITIONS ============
-    const agents = {
-      JARVIS: { name: 'JARVIS', color: 'agent-jarvis', status: 'online' },
-      JADE: { name: 'JADE', color: 'agent-jade', status: 'online' },
-      BLAZE: { name: 'BLAZE', color: 'agent-blaze', status: 'busy' },
-      NOVA: { name: 'NOVA', color: 'agent-nova', status: 'online' },
-      SAGE: { name: 'SAGE', color: 'agent-sage', status: 'online' },
-      AXEL: { name: 'AXEL', color: 'agent-axel', status: 'away' }
-    };
-    
-    // ============ COLUMN DEFINITIONS ============
-    const columns = [
-      { name: "INBOX", class: "glow-inbox", bar: "bar-inbox", dot: "dot-inbox" },
-      { name: "ASSIGNED", class: "glow-assigned", bar: "bar-assigned", dot: "dot-assigned" },
-      { name: "IN PROGRESS", class: "glow-progress", bar: "bar-progress", dot: "dot-progress" },
-      { name: "REVIEW", class: "glow-review", bar: "bar-review", dot: "dot-review" },
-      { name: "DONE", class: "glow-done", bar: "bar-done", dot: "dot-done" }
-    ];
-    
-    // ============ DEFAULT TASKS (if no JSON/localStorage) ============
-    const defaultTasks = {
-      "INBOX": [
-        { id: "1", task_name: "Upgrade Protocols", assigned_agent: null, status: "todo", priority: "high", tags: ["comm", "enc"] },
-        { id: "2", task_name: "Q2 Revenue Reports", assigned_agent: null, status: "todo", priority: "medium", tags: ["finance"] },
-        { id: "3", task_name: "Security Patches", assigned_agent: null, status: "todo", priority: "critical", tags: ["security"] }
-      ],
-      "ASSIGNED": [
-        { id: "4", task_name: "Reinforce Firewall", assigned_agent: "JARVIS", status: "todo", priority: "critical", tags: ["security"] },
-        { id: "5", task_name: "Analytics Dashboard", assigned_agent: "AXEL", status: "todo", priority: "medium", tags: ["frontend"] }
-      ],
-      "IN PROGRESS": [
-        { id: "6", task_name: "CRITICAL: Breach", assigned_agent: "BLAZE", status: "progress", priority: "critical", tags: ["security"] },
-        { id: "7", task_name: "Neural Upgrade", assigned_agent: "NOVA", status: "progress", priority: "high", tags: ["ai"] },
-        { id: "8", task_name: "DB Optimization", assigned_agent: "JARVIS", status: "progress", priority: "medium", tags: ["backend"] }
-      ],
-      "REVIEW": [
-        { id: "9", task_name: "System Audit", assigned_agent: "SAGE", status: "review", priority: "medium", tags: ["security"] }
-      ],
-      "DONE": [
-        { id: "10", task_name: "Network Map", assigned_agent: null, status: "done", priority: "low", tags: ["infra"] },
-        { id: "11", task_name: "Agent Manual", assigned_agent: null, status: "done", priority: "low", tags: ["docs"] },
-        { id: "12", task_name: "API Gateway", assigned_agent: null, status: "done", priority: "medium", tags: ["backend"] }
-      ]
-    };
-    
-    // ============ SCHEDULED JOBS ============
-    const scheduledJobs = [
-      { name: "Memory Sync", freq: "5 min", progress: 100, color: "#00E5FF" },
-      { name: "GitHub Backup", freq: "1 hour", progress: 100, color: "#00E5FF" },
-      { name: "Email Check", freq: "30 min", progress: 100, color: "#00E5FF" },
-      { name: "Health Check", freq: "10 min", progress: 98, color: "#FF8A00" }
-    ];
-    
-    // ============ STATE ============
-    let tasks = {};
-    
-    // ============ INITIALIZATION ============
-    async function init() {
-      // Try to load from localStorage first
-      const stored = localStorage.getItem(CONFIG.storageKey);
-      if (stored) {
-        try {
-          tasks = JSON.parse(stored);
-          console.log('Loaded tasks from localStorage');
-        } catch (e) {
-          console.log('Failed to parse stored tasks, using default');
-          tasks = JSON.parse(JSON.stringify(defaultTasks));
-        }
-      } else {
-        tasks = JSON.parse(JSON.stringify(defaultTasks));
-      }
-      
-      renderAll();
-      setupDragAndDrop();
-      setupCommandConsole();
-      
-      // Start polling
-      setInterval(fetchTasks, CONFIG.pollInterval);
+    const STORAGE_TASKS_KEY = 'missionControlTasks';
+    const STORAGE_COLUMNS_KEY = 'missionControlColumns';
+    const DEFAULT_COLUMNS = ['INBOX', 'ASSIGNED', 'IN PROGRESS', 'REVIEW', 'DONE'];
+
+    let tasks = [];
+    let columnNames = [];
+
+    function init() {
+      const savedColumns = localStorage.getItem(STORAGE_COLUMNS_KEY);
+      columnNames = savedColumns ? JSON.parse(savedColumns) : [...DEFAULT_COLUMNS];
+      if (!savedColumns) saveColumns();
+
+      const savedTasks = localStorage.getItem(STORAGE_TASKS_KEY);
+      tasks = savedTasks ? JSON.parse(savedTasks) : [
+        { id: '1', title: 'Initialize Dashboard', description: 'Load system frameworks', tags: ['system'], assignedTo: 'JARVIS', column: columnNames[4] },
+        { id: '2', title: 'Setup LocalStorage', description: 'Enable data persistence', tags: ['database'], assignedTo: 'JARVIS', column: columnNames[4] }
+      ];
+      if (!savedTasks) saveTasks();
+
+      renderBoard();
     }
-    
-    // ============ DATA FETCHING ============
-    async function fetchTasks() {
-      try {
-        // Try to fetch from tasks.json
-        const response = await fetch('./tasks.json', { cache: 'no-cache' });
-        if (response.ok) {
-          const json = await response.json();
-          // Merge with local changes (localStorage takes priority)
-          tasks = mergeTasks(json, tasks);
-          saveToLocalStorage();
-          renderAll();
-          console.log('Tasks updated from server');
-        }
-      } catch (e) {
-        // No tasks.json, continue with local data
-        console.log('No tasks.json found, using local data');
-      }
-    }
-    
-    function mergeTasks(serverTasks, localTasks) {
-      // Server tasks override local, but preserve local-only tasks
-      const result = {};
-      columns.forEach(col => {
-        const colName = col.name;
-        result[colName] = serverTasks[colName] || localTasks[colName] || [];
-      });
-      return result;
-    }
-    
-    // ============ RENDERING ============
-    function renderAll() {
-      renderAgents();
-      renderKanban();
-      renderJobs();
-    }
-    
-    function renderAgents() {
-      const el = document.getElementById('agent-status');
-      el.innerHTML = Object.entries(agents).map(([key, agent]) => `
-        <div class="flex flex-col items-center gap-1">
-          <span class="w-2 h-2 ${agent.status === 'online' ? 'dot-online' : agent.status === 'busy' ? 'dot-busy' : 'dot-away'} rounded-full ${agent.status === 'online' ? 'animate-pulse' : ''}"></span>
-          <span class="text-white text-[8px]">${agent.name}</span>
-        </div>
-      `).join('');
-    }
-    
-    function renderKanban() {
-      const kanbanEl = document.getElementById('kanban');
-      kanbanEl.innerHTML = '';
-      
-      columns.forEach(col => {
-        const colTasks = tasks[col.name] || [];
+
+    function saveTasks() { localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(tasks)); }
+    function saveColumns() { localStorage.setItem(STORAGE_COLUMNS_KEY, JSON.stringify(columnNames)); }
+
+    function renderBoard() {
+      const board = document.getElementById('board');
+      board.innerHTML = '';
+      columnNames.forEach(col => {
         const colDiv = document.createElement('div');
-        colDiv.className = 'flex-1 min-w-0 flex flex-col';
-        colDiv.dataset.column = col.name;
-        
+        colDiv.className = 'column glass rounded-lg p-4 flex flex-col';
         colDiv.innerHTML = `
-          <div class="flex items-center gap-2 mb-2">
-            <div class="w-1 h-4 ${col.bar} rounded-full"></div>
-            <span class="text-white font-semibold text-xs">${col.name}</span>
-            <span class="text-gray-400 text-xs">${colTasks.length}</span>
+          <div class="flex justify-between items-center mb-5">
+            <h3 class="font-bold text-white text-xs uppercase tracking-[0.2em] opacity-80">${col}</h3>
+            <span class="text-[10px] font-mono text-gray-500">${tasks.filter(t => t.column === col).length}</span>
           </div>
-          <div class="flex-1 space-y-2 overflow-y-auto drop-zone" data-column="${col.name}">
-            ${colTasks.map(task => renderTaskCard(task, col)).join('')}
+          <div class="column-body" data-column="${col}" ondragover="allowDrop(event)" ondrop="drop(event)">
+            ${tasks.filter(t => t.column === col).map(t => renderTask(t)).join('')}
           </div>
         `;
-        
-        kanbanEl.appendChild(colDiv);
+        board.appendChild(colDiv);
       });
-      
-      // Re-setup drag and drop after rendering
-      setupDragAndDrop();
+      attachDragEvents();
     }
-    
-    function renderTaskCard(task, column) {
-      const isActive = task.status === 'progress';
-      const agent = task.assigned_agent ? agents[task.assigned_agent] : null;
-      const agentBadge = agent ? `<span class="agent-badge ${agent.color}" title="${agent.name}">${agent.name.charAt(0)}</span>` : '';
-      
-      // Priority indicator
-      const priorityColors = {
-        critical: '#ef4444',
-        high: '#f97316',
-        medium: '#eab308',
-        low: '#22c55e'
-      };
-      const priorityDot = `<span class="w-1.5 h-1.5 rounded-full" style="background-color: ${priorityColors[task.priority] || '#6b7280'}"></span>`;
-      
+
+    function renderTask(task) {
+      const tagsHtml = (task.tags || []).map(tag => `<span class="tag-pill">${tag}</span>`).join('');
+      const badgeHtml = task.assignedTo ? `<span class="agent-badge">${task.assignedTo}</span>` : '';
       return `
-        <div class="task-card ${column.class} ${isActive ? 'task-active' : ''}" 
-             draggable="true" 
-             data-task-id="${task.id}"
-             data-column="${column.name}">
-          <div class="flex items-center gap-1.5 mb-1">
-            ${priorityDot}
-            ${agentBadge}
-            <span class="w-1.5 h-1.5 rounded-full ${column.dot}"></span>
-          </div>
-          <p class="text-white text-xs font-medium truncate" contenteditable="true" 
-             data-field="task_name">${task.task_name}</p>
-          ${task.tags ? `<div class="flex gap-1 mt-1 flex-wrap">${task.tags.map(t => `<span class="text-[8px] bg-white/5 text-gray-400 px-1.5 py-0.5 rounded">${t}</span>`).join('')}</div>` : ''}
+        <div class="card p-4 cursor-grab active:cursor-grabbing" draggable="true" data-id="${task.id}" onclick="openEditModal('${task.id}')">
+          ${badgeHtml}
+          <div class="font-semibold text-sm text-gray-100 mb-2 leading-tight">${escapeHtml(task.title)}</div>
+          <div class="flex flex-wrap gap-1 mb-3">${tagsHtml}</div>
+          ${task.description ? `<div class="text-[11px] text-gray-500 line-clamp-2 font-medium">${escapeHtml(task.description)}</div>` : ''}
         </div>
       `;
     }
-    
-    function renderJobs() {
-      const jobsEl = document.getElementById('jobs');
-      jobsEl.innerHTML = scheduledJobs.map(job => {
-        const radius = 16;
-        const circumference = 2 * Math.PI * radius;
-        const offset = circumference - (job.progress / 100) * circumference;
-        
-        return `
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-white text-xs">${job.name}</p>
-              <p class="text-gray-500 text-[8px]">${job.freq}</p>
-            </div>
-            <div class="relative w-8 h-8">
-              <svg class="w-8 h-8 -rotate-90">
-                <circle cx="16" cy="16" r="${radius}" stroke="rgba(255,255,255,0.1)" stroke-width="3" fill="none" />
-                <circle cx="16" cy="16" r="${radius}" stroke="${job.color}" stroke-width="3" fill="none" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" stroke-linecap="round" />
-              </svg>
-              <span class="absolute inset-0 flex items-center justify-center text-[8px] text-white font-mono">${job.progress}%</span>
-            </div>
-          </div>
-        `;
-      }).join('');
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
     }
-    
-    // ============ DRAG AND DROP ============
-    function setupDragAndDrop() {
-      const cards = document.querySelectorAll('.task-card');
-      const dropZones = document.querySelectorAll('.drop-zone');
-      
-      cards.forEach(card => {
-        card.addEventListener('dragstart', handleDragStart);
-        card.addEventListener('dragend', handleDragEnd);
-        
-        // Inline editing
-        const titleEl = card.querySelector('[contenteditable="true"]');
-        if (titleEl) {
-          titleEl.addEventListener('blur', handleTitleEdit);
-          titleEl.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              titleEl.blur();
-            }
-          });
-        }
-      });
-      
-      dropZones.forEach(zone => {
-        zone.addEventListener('dragover', handleDragOver);
-        zone.addEventListener('dragleave', handleDragLeave);
-        zone.addEventListener('drop', handleDrop);
-      });
-    }
-    
-    let draggedTask = null;
-    let sourceColumn = null;
-    
-    function handleDragStart(e) {
-      draggedTask = e.target;
-      sourceColumn = e.target.dataset.column;
-      e.target.classList.add('dragging');
-      e.dataTransfer.effectAllowed = 'move';
-    }
-    
-    function handleDragEnd(e) {
-      e.target.classList.remove('dragging');
-      document.querySelectorAll('.drop-zone').forEach(z => z.classList.remove('drop-zone-active'));
-    }
-    
-    function handleDragOver(e) {
-      e.preventDefault();
-      e.currentTarget.classList.add('drop-zone-active');
-    }
-    
-    function handleDragLeave(e) {
-      e.currentTarget.classList.remove('drop-zone-active');
-    }
-    
-    function handleDrop(e) {
-      e.preventDefault();
-      e.currentTarget.classList.remove('drop-zone-active');
-      
-      const targetColumn = e.currentTarget.dataset.column;
-      if (!draggedTask || !targetColumn || targetColumn === sourceColumn) return;
-      
-      const taskId = draggedTask.dataset.taskId;
-      moveTask(taskId, sourceColumn, targetColumn);
-    }
-    
-    function moveTask(taskId, fromColumn, toColumn) {
-      const taskIndex = tasks[fromColumn].findIndex(t => t.id === taskId);
-      if (taskIndex === -1) return;
-      
-      const task = tasks[fromColumn].splice(taskIndex, 1)[0];
-      
-      // Update status based on column
-      const statusMap = {
-        'INBOX': 'todo',
-        'ASSIGNED': 'todo',
-        'IN PROGRESS': 'progress',
-        'REVIEW': 'review',
-        'DONE': 'done'
-      };
-      task.status = statusMap[toColumn];
-      
-      tasks[toColumn].push(task);
-      
-      saveToLocalStorage();
-      renderAll();
-      
-      // Send webhook if configured
-      if (CONFIG.webhookUrl) {
-        sendWebhook({ action: 'task_moved', task, from: fromColumn, to: toColumn });
-      }
-    }
-    
-    function handleTitleEdit(e) {
-      const taskId = e.target.closest('.task-card').dataset.taskId;
-      const column = e.target.closest('.task-card').dataset.column;
-      const newTitle = e.target.textContent.trim();
-      
-      const task = tasks[column].find(t => t.id === taskId);
-      if (task && task.task_name !== newTitle) {
-        task.task_name = newTitle;
-        saveToLocalStorage();
-        
-        if (CONFIG.webhookUrl) {
-          sendWebhook({ action: 'task_updated', task });
-        }
-      }
-    }
-    
-    // ============ LOCAL STORAGE ============
-    function saveToLocalStorage() {
-      localStorage.setItem(CONFIG.storageKey, JSON.stringify(tasks));
-    }
-    
-    // ============ WEBHOOK ============
-    async function sendWebhook(data) {
-      try {
-        await fetch(CONFIG.webhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
+
+    /* Drag & Drop */
+    function attachDragEvents() {
+      document.querySelectorAll('.card[draggable="true"]').forEach(card => {
+        card.addEventListener('dragstart', (e) => {
+          e.dataTransfer.setData('text/plain', e.target.dataset.id);
+          e.target.classList.add('dragging');
         });
-      } catch (e) {
-        console.log('Webhook failed:', e);
-      }
-    }
-    
-    // ============ COMMAND CONSOLE ============
-    function setupCommandConsole() {
-      const input = document.getElementById('command-input');
-      const sendBtn = document.getElementById('send-command');
-      
-      const handleCommand = async () => {
-        const cmd = input.value.trim();
-        if (!cmd) return;
-        
-        input.value = '';
-        
-        // Process command
-        const response = await processCommand(cmd);
-        alert(response);
-      };
-      
-      sendBtn.addEventListener('click', handleCommand);
-      input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') handleCommand();
+        card.addEventListener('dragend', (e) => e.target.classList.remove('dragging'));
       });
     }
-    
-    async function processCommand(cmd) {
-      const lowerCmd = cmd.toLowerCase();
-      
-      // Add task command
-      if (lowerCmd.startsWith('add task:')) {
-        const title = cmd.substring(9).trim();
-        const newTask = {
-          id: Date.now().toString(),
-          task_name: title,
-          assigned_agent: null,
-          status: 'todo',
-          priority: 'medium',
-          tags: []
-        };
-        
-        if (!tasks['INBOX']) tasks['INBOX'] = [];
-        tasks['INBOX'].push(newTask);
-        saveToLocalStorage();
-        renderAll();
-        
-        if (CONFIG.webhookUrl) {
-          sendWebhook({ action: 'task_created', task: newTask });
-        }
-        
-        return `✓ Task "${title}" added to INBOX`;
+
+    function allowDrop(e) { e.preventDefault(); }
+    function drop(e) {
+      e.preventDefault();
+      const taskId = e.dataTransfer.getData('text/plain');
+      const colBody = e.target.closest('.column-body');
+      if (!colBody) return;
+      const newColumn = colBody.dataset.column;
+      const task = tasks.find(t => t.id === taskId);
+      if (task && task.column !== newColumn) {
+        task.column = newColumn;
+        saveTasks();
+        renderBoard();
       }
-      
-      // Move task command
-      if (lowerCmd.startsWith('move:')) {
-        // Format: move: task_id to COLUMN
-        const match = cmd.match(/move:\s*(\w+)\s+to\s+(\w+)/i);
-        if (match) {
-          const [, taskId, targetCol] = match;
-          
-          // Find task
-          for (const colName of Object.keys(tasks)) {
-            const task = tasks[colName].find(t => t.id === taskId || t.task_name.toLowerCase().includes(taskId.toLowerCase()));
-            if (task) {
-              // Validate column
-              const validCol = columns.find(c => c.name.toUpperCase() === targetCol.toUpperCase());
-              if (validCol) {
-                moveTask(task.id, colName, validCol.name);
-                return `✓ Moved "${task.task_name}" to ${validCol.name}`;
-              }
-              return `✗ Unknown column: ${targetCol}`;
-            }
-          }
-          return `✗ Task not found: ${taskId}`;
-        }
-        return 'Usage: move: <task name/id> to <column>';
-      }
-      
-      // Assign command
-      if (lowerCmd.startsWith('assign:')) {
-        // Format: assign: task_name to AGENT
-        const match = cmd.match(/assign:\s*(.+?)\s+to\s+(\w+)/i);
-        if (match) {
-          const [, taskName, agentName] = match;
-          const upperAgent = agentName.toUpperCase();
-          
-          if (!agents[upperAgent]) {
-            return `✗ Unknown agent: ${agentName}`;
-          }
-          
-          for (const colName of Object.keys(tasks)) {
-            const task = tasks[colName].find(t => t.task_name.toLowerCase().includes(taskName.trim().toLowerCase()));
-            if (task) {
-              task.assigned_agent = upperAgent;
-              saveToLocalStorage();
-              renderAll();
-              
-              if (CONFIG.webhookUrl) {
-                sendWebhook({ action: 'task_assigned', task, agent: upperAgent });
-              }
-              
-              return `✓ Assigned "${task.task_name}" to ${upperAgent}`;
-            }
-          }
-          return `✗ Task not found: ${taskName}`;
-        }
-        return 'Usage: assign: <task name> to <agent>';
-      }
-      
-      // List agents
-      if (lowerCmd === 'agents' || lowerCmd === 'list agents') {
-        return 'Available agents: ' + Object.keys(agents).join(', ');
-      }
-      
-      // Help
-      if (lowerCmd === 'help' || lowerCmd === '?') {
-        return `Commands:
-• add task: <title> - Add new task
-• move: <task> to <column> - Move task
-• assign: <task> to <agent> - Assign task
-• agents - List agents
-• help - Show this help`;
-      }
-      
-      return `Unknown command: "${cmd}". Type "help" for available commands.`;
     }
+
+    /* Modals */
+    function openSettingsModal() {
+      const container = document.getElementById('columnSettings');
+      container.innerHTML = columnNames.map((name, idx) => `
+        <div>
+          <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 block">Slot ${idx + 1}</label>
+          <input type="text" value="${escapeHtml(name)}" data-idx="${idx}" class="w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-sm focus:outline-none focus:border-cyan-500">
+        </div>
+      `).join('');
+      document.getElementById('settingsModal').classList.replace('hidden', 'flex');
+    }
+
+    function closeSettingsModal() { document.getElementById('settingsModal').classList.replace('flex', 'hidden'); }
     
-    // ============ START ============
-    init();
-  </script>
-</body>
-</html>
+    function saveSettings() {
+      const inputs = document.querySelectorAll('#columnSettings input');
+      const oldNames = [...columnNames];
+      columnNames = Array.from(inputs).map(input => input.value.trim() || 'Unitialized');
+      
+      // Update task column associations if name changed
+      tasks.forEach(task => {
+        const oldIdx = oldNames.indexOf(task.column);
+        if (oldIdx !== -1) task.column = columnNames[oldIdx];
+      });
+
+      saveColumns();
+      saveTasks();
+      renderBoard();
+      closeSettingsModal();
+    }
+
+    function openEditModal(taskId) {
+      const task = tasks.find(t => t.id === taskId);
+      if (!task) return;
+      document.getElementById('editTaskId').value = task.id;
+      document.getElementById('editTitle').value = task.title;
+      document.getElementById('editDescription').value = task.description || '';
+      document.getElementById('editAssignedTo').value = task.assignedTo || '';
+      document.getElementById('editTags').value = (task.tags || []).join(', ');
+      document.getElementById('editModal').classList.replace('hidden', 'flex');
+    }
+
+    function closeEditModal() { document.getElementById('editModal').classList.replace('flex', 'hidden'); }
+
+    function saveTaskEdit() {
+      const id = document.getElementById('editTaskId').value;
+      const task = tasks.find(t => t.id === id);
+      if (!task) return;
+      task.title = document.getElementById('editTitle').value.trim() || 'New Task';
+      task.description = document.getElementById('editDescription').value.trim();
+      task.assignedTo = document.getElementById('editAssignedTo').value;
+      const tagsStr = document.getElementById('editTags').value;
+      task.tags = tagsStr ? tagsStr.split(',').map(t => t.trim()).filter(t => t) : [];
+      saveTasks();
+      renderBoard();
+      closeEditModal();
+    }
+
+    function deleteTask() {
+      const id = document.getElementById('editTaskId').value;
+      tasks = tasks.filter(t => t
