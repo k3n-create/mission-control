@@ -1,0 +1,24 @@
+{
+  "INBOX": [
+    {"id": "1", "task_name": "Upgrade Protocols", "assigned_agent": null, "status": "todo", "priority": "high", "tags": ["comm", "enc"]},
+    {"id": "2", "task_name": "Q2 Revenue Reports", "assigned_agent": null, "status": "todo", "priority": "medium", "tags": ["finance"]},
+    {"id": "3", "task_name": "Security Patches", "assigned_agent": null, "status": "todo", "priority": "critical", "tags": ["security"]}
+  ],
+  "ASSIGNED": [
+    {"id": "4", "task_name": "Reinforce Firewall", "assigned_agent": "JARVIS", "status": "todo", "priority": "critical", "tags": ["security"]},
+    {"id": "5", "task_name": "Analytics Dashboard", "assigned_agent": "AXEL", "status": "todo", "priority": "medium", "tags": ["frontend"]}
+  ],
+  "IN PROGRESS": [
+    {"id": "6", "task_name": "CRITICAL: Breach", "assigned_agent": "BLAZE", "status": "progress", "priority": "critical", "tags": ["security"]},
+    {"id": "7", "task_name": "Neural Upgrade", "assigned_agent": "NOVA", "status": "progress", "priority": "high", "tags": ["ai"]},
+    {"id": "8", "task_name": "DB Optimization", "assigned_agent": "JARVIS", "status": "progress", "priority": "medium", "tags": ["backend"]}
+  ],
+  "REVIEW": [
+    {"id": "9", "task_name": "System Audit", "assigned_agent": "SAGE", "status": "review", "priority": "medium", "tags": ["security"]}
+  ],
+  "DONE": [
+    {"id": "10", "task_name": "Network Map", "assigned_agent": null, "status": "done", "priority": "low", "tags": ["infra"]},
+    {"id": "11", "task_name": "Agent Manual", "assigned_agent": null, "status": "done", "priority": "low", "tags": ["docs"]},
+    {"id": "12", "task_name": "API Gateway", "assigned_agent": null, "status": "done", "priority": "medium", "tags": ["backend"]}
+  ]
+}

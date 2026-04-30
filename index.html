@@ -30,6 +30,22 @@
       border: 1px solid rgba(255, 255, 255, 0.05);
       border-radius: 0.375rem;
       padding: 0.5rem;
+      cursor: grab;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .task-card:hover {
+      transform: translateY(-2px);
+    }
+    
+    .task-card.dragging {
+      opacity: 0.5;
+      cursor: grabbing;
+    }
+    
+    .task-card[contenteditable="true"]:focus {
+      outline: 1px solid #22c55e;
+      background: rgba(30, 30, 35, 1);
     }
     
     .glow-inbox { box-shadow: 0 0 12px rgba(59, 130, 246, 0.3); }
@@ -62,12 +78,64 @@
     .dot-progress { background-color: #f97316; }
     .dot-review { background-color: #eab308; }
     .dot-done { background-color: #22c55e; }
+    
+    /* Pulse animation for active tasks */
+    @keyframes pulse-task {
+      0%, 100% { box-shadow: 0 0 12px rgba(249, 115, 22, 0.3); }
+      50% { box-shadow: 0 0 20px rgba(249, 115, 22, 0.6); }
+    }
+    
+    .task-active {
+      animation: pulse-task 2s ease-in-out infinite;
+    }
+    
+    /* Drop zone highlight */
+    .drop-zone-active {
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px dashed rgba(255, 255, 255, 0.3);
+    }
+    
+    /* Agent badges */
+    .agent-badge {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 8px;
+      font-weight: bold;
+    }
+    
+    .agent-jarvis { background: linear-gradient(135deg, #06b6d4, #3b82f6); }
+    .agent-jade { background: linear-gradient(135deg, #10b981, #059669); }
+    .agent-blaze { background: linear-gradient(135deg, #f97316, #dc2626); }
+    .agent-nova { background: linear-gradient(135deg, #8b5cf6, #ec4899); }
+    .agent-sage { background: linear-gradient(135deg, #eab308, #84cc16); }
+    .agent-axel { background: linear-gradient(135deg, #64748b, #475569); }
+    
+    /* Command console */
+    .console-input {
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #00e5ff;
+    }
+    
+    .console-input::placeholder {
+      color: rgba(255, 255, 255, 0.3);
+    }
+    
+    .console-input:focus {
+      outline: none;
+      border-color: #00e5ff;
+    }
   </style>
 </head>
-<body class="h-screen text-sm font-sans relative overflow-hidden">
+<body class="h-screen text-sm font-sans relative overflow-hidden flex flex-col">
   <div class="overlay"></div>
   
-  <div class="flex h-screen p-2 gap-5 relative z-10">
+  <!-- MAIN CONTENT -->
+  <div class="flex-1 flex p-2 gap-5 relative z-10 overflow-hidden">
     <!-- LEFT SIDEBAR -->
     <div class="w-16 card m-2 flex flex-col items-center py-4">
       <div class="w-8 h-8 bg-gradient-to-br from-cyan-400 to-blue-500 rounded flex items-center justify-center text-white font-bold text-sm mb-6">N</div>
@@ -90,32 +158,13 @@
       
       <div class="flex-1">
         <div class="text-[8px] text-gray-500 text-center mb-2">AGENTS</div>
-        <div class="flex flex-col items-center gap-2">
-          <div class="flex flex-col items-center gap-1">
-            <span class="w-2 h-2 dot-online rounded-full"></span>
-            <span class="text-white text-[8px]">JARVIS</span>
-          </div>
-          <div class="flex flex-col items-center gap-1">
-            <span class="w-2 h-2 dot-busy rounded-full"></span>
-            <span class="text-white text-[8px]">BLAZE</span>
-          </div>
-          <div class="flex flex-col items-center gap-1">
-            <span class="w-2 h-2 dot-online rounded-full"></span>
-            <span class="text-white text-[8px]">NOVA</span>
-          </div>
-          <div class="flex flex-col items-center gap-1">
-            <span class="w-2 h-2 dot-online rounded-full"></span>
-            <span class="text-white text-[8px]">SAGE</span>
-          </div>
-          <div class="flex flex-col items-center gap-1">
-            <span class="w-2 h-2 dot-away rounded-full"></span>
-            <span class="text-white text-[8px]">AXEL</span>
-          </div>
+        <div class="flex flex-col items-center gap-2" id="agent-status">
+          <!-- Agent status rendered by JS -->
         </div>
       </div>
     </div>
     
-    <!-- MAIN CONTENT - KANBAN (No container around tiles) -->
+    <!-- MAIN CONTENT - KANBAN -->
     <div class="flex-1 flex p-2 gap-5 overflow-hidden z-10" id="kanban">
       <!-- Columns rendered by JS -->
     </div>
@@ -141,41 +190,76 @@
       </div>
     </div>
   </div>
+  
+  <!-- COMMAND CONSOLE -->
+  <div class="p-2 relative z-10">
+    <div class="card p-2 flex gap-2">
+      <span class="text-cyan-400 text-xs font-mono pt-1">❯</span>
+      <input 
+        type="text" 
+        id="command-input"
+        class="console-input flex-1 px-3 py-1 rounded text-xs font-mono" 
+        placeholder="Type command... (e.g., 'add task: Fix bug in status')"
+        autocomplete="off"
+      >
+      <button id="send-command" class="bg-cyan-500/20 text-cyan-400 px-3 py-1 rounded text-xs hover:bg-cyan-500/30 transition">SEND</button>
+    </div>
+  </div>
 
   <script>
+    // ============ CONFIGURATION ============
+    const CONFIG = {
+      pollInterval: 30000, // 30 seconds
+      storageKey: 'mission-control-tasks',
+      webhookUrl: null // Set to your OpenClaw webhook URL
+    };
+    
+    // ============ AGENT DEFINITIONS ============
+    const agents = {
+      JARVIS: { name: 'JARVIS', color: 'agent-jarvis', status: 'online' },
+      JADE: { name: 'JADE', color: 'agent-jade', status: 'online' },
+      BLAZE: { name: 'BLAZE', color: 'agent-blaze', status: 'busy' },
+      NOVA: { name: 'NOVA', color: 'agent-nova', status: 'online' },
+      SAGE: { name: 'SAGE', color: 'agent-sage', status: 'online' },
+      AXEL: { name: 'AXEL', color: 'agent-axel', status: 'away' }
+    };
+    
+    // ============ COLUMN DEFINITIONS ============
     const columns = [
-      { name: "INBOX", count: 3, class: "glow-inbox", bar: "bar-inbox", dot: "dot-inbox" },
-      { name: "ASSIGNED", count: 2, class: "glow-assigned", bar: "bar-assigned", dot: "dot-assigned" },
-      { name: "IN PROGRESS", count: 3, class: "glow-progress", bar: "bar-progress", dot: "dot-progress" },
-      { name: "REVIEW", count: 1, class: "glow-review", bar: "bar-review", dot: "dot-review" },
-      { name: "DONE", count: 3, class: "glow-done", bar: "bar-done", dot: "dot-done" }
+      { name: "INBOX", class: "glow-inbox", bar: "bar-inbox", dot: "dot-inbox" },
+      { name: "ASSIGNED", class: "glow-assigned", bar: "bar-assigned", dot: "dot-assigned" },
+      { name: "IN PROGRESS", class: "glow-progress", bar: "bar-progress", dot: "dot-progress" },
+      { name: "REVIEW", class: "glow-review", bar: "bar-review", dot: "dot-review" },
+      { name: "DONE", class: "glow-done", bar: "bar-done", dot: "dot-done" }
     ];
     
-    const tasks = {
+    // ============ DEFAULT TASKS (if no JSON/localStorage) ============
+    const defaultTasks = {
       "INBOX": [
-        { id: "1", title: "Upgrade Protocols", tags: ["comm", "enc"] },
-        { id: "2", title: "Q2 Revenue Reports", tags: ["finance"] },
-        { id: "3", title: "Security Patches", tags: ["security"] }
+        { id: "1", task_name: "Upgrade Protocols", assigned_agent: null, status: "todo", priority: "high", tags: ["comm", "enc"] },
+        { id: "2", task_name: "Q2 Revenue Reports", assigned_agent: null, status: "todo", priority: "medium", tags: ["finance"] },
+        { id: "3", task_name: "Security Patches", assigned_agent: null, status: "todo", priority: "critical", tags: ["security"] }
       ],
       "ASSIGNED": [
-        { id: "4", title: "Reinforce Firewall", tags: ["security"], assignee: "JARVIS" },
-        { id: "5", title: "Analytics Dashboard", tags: ["frontend"], assignee: "AXEL" }
+        { id: "4", task_name: "Reinforce Firewall", assigned_agent: "JARVIS", status: "todo", priority: "critical", tags: ["security"] },
+        { id: "5", task_name: "Analytics Dashboard", assigned_agent: "AXEL", status: "todo", priority: "medium", tags: ["frontend"] }
       ],
       "IN PROGRESS": [
-        { id: "6", title: "CRITICAL: Breach", tags: ["security"], assignee: "BLAZE" },
-        { id: "7", title: "Neural Upgrade", tags: ["ai"], assignee: "NOVA" },
-        { id: "8", title: "DB Optimization", tags: ["backend"], assignee: "JARVIS" }
+        { id: "6", task_name: "CRITICAL: Breach", assigned_agent: "BLAZE", status: "progress", priority: "critical", tags: ["security"] },
+        { id: "7", task_name: "Neural Upgrade", assigned_agent: "NOVA", status: "progress", priority: "high", tags: ["ai"] },
+        { id: "8", task_name: "DB Optimization", assigned_agent: "JARVIS", status: "progress", priority: "medium", tags: ["backend"] }
       ],
       "REVIEW": [
-        { id: "9", title: "System Audit", tags: ["security"], assignee: "SAGE" }
+        { id: "9", task_name: "System Audit", assigned_agent: "SAGE", status: "review", priority: "medium", tags: ["security"] }
       ],
       "DONE": [
-        { id: "10", title: "Network Map", tags: ["infra"] },
-        { id: "11", title: "Agent Manual", tags: ["docs"] },
-        { id: "12", title: "API Gateway", tags: ["backend"] }
+        { id: "10", task_name: "Network Map", assigned_agent: null, status: "done", priority: "low", tags: ["infra"] },
+        { id: "11", task_name: "Agent Manual", assigned_agent: null, status: "done", priority: "low", tags: ["docs"] },
+        { id: "12", task_name: "API Gateway", assigned_agent: null, status: "done", priority: "medium", tags: ["backend"] }
       ]
     };
     
+    // ============ SCHEDULED JOBS ============
     const scheduledJobs = [
       { name: "Memory Sync", freq: "5 min", progress: 100, color: "#00E5FF" },
       { name: "GitHub Backup", freq: "1 hour", progress: 100, color: "#00E5FF" },
@@ -183,57 +267,413 @@
       { name: "Health Check", freq: "10 min", progress: 98, color: "#FF8A00" }
     ];
     
-    // Render Kanban Columns - NO container around tiles
-    const kanbanEl = document.getElementById('kanban');
-    columns.forEach(col => {
-      const colDiv = document.createElement('div');
-      colDiv.className = 'flex-1 min-w-0 flex flex-col';
-      colDiv.innerHTML = `
-        <div class="flex items-center gap-2 mb-2">
-          <div class="w-1 h-4 ${col.bar} rounded-full"></div>
-          <span class="text-white font-semibold text-xs">${col.name}</span>
-          <span class="text-gray-400 text-xs">${col.count}</span>
-        </div>
-        <div class="flex-1 space-y-2 overflow-y-auto">
-          ${tasks[col.name].map(task => `
-            <div class="task-card ${col.class}">
-              <div class="flex items-center gap-1.5 mb-1">
-                <span class="w-1.5 h-1.5 rounded-full ${col.dot}"></span>
-                ${task.assignee ? `<span class="text-cyan-400 text-[10px] font-mono">${task.assignee}</span>` : ''}
-              </div>
-              <p class="text-white text-xs font-medium truncate">${task.title}</p>
-              ${task.tags ? `<div class="flex gap-1 mt-1">${task.tags.map(t => `<span class="text-[8px] bg-white/5 text-gray-400 px-1.5 py-0.5 rounded">${t}</span>`).join('')}</div>` : ''}
-            </div>
-          `).join('')}
-        </div>
-      `;
-      kanbanEl.appendChild(colDiv);
-    });
+    // ============ STATE ============
+    let tasks = {};
     
-    // Render Scheduled Jobs
-    const jobsEl = document.getElementById('jobs');
-    scheduledJobs.forEach(job => {
-      const radius = 16;
-      const circumference = 2 * Math.PI * radius;
-      const offset = circumference - (job.progress / 100) * circumference;
+    // ============ INITIALIZATION ============
+    async function init() {
+      // Try to load from localStorage first
+      const stored = localStorage.getItem(CONFIG.storageKey);
+      if (stored) {
+        try {
+          tasks = JSON.parse(stored);
+          console.log('Loaded tasks from localStorage');
+        } catch (e) {
+          console.log('Failed to parse stored tasks, using default');
+          tasks = JSON.parse(JSON.stringify(defaultTasks));
+        }
+      } else {
+        tasks = JSON.parse(JSON.stringify(defaultTasks));
+      }
       
-      const jobDiv = document.createElement('div');
-      jobDiv.className = 'flex items-center justify-between';
-      jobDiv.innerHTML = `
-        <div>
-          <p class="text-white text-xs">${job.name}</p>
-          <p class="text-gray-500 text-[8px]">${job.freq}</p>
+      renderAll();
+      setupDragAndDrop();
+      setupCommandConsole();
+      
+      // Start polling
+      setInterval(fetchTasks, CONFIG.pollInterval);
+    }
+    
+    // ============ DATA FETCHING ============
+    async function fetchTasks() {
+      try {
+        // Try to fetch from tasks.json
+        const response = await fetch('./tasks.json', { cache: 'no-cache' });
+        if (response.ok) {
+          const json = await response.json();
+          // Merge with local changes (localStorage takes priority)
+          tasks = mergeTasks(json, tasks);
+          saveToLocalStorage();
+          renderAll();
+          console.log('Tasks updated from server');
+        }
+      } catch (e) {
+        // No tasks.json, continue with local data
+        console.log('No tasks.json found, using local data');
+      }
+    }
+    
+    function mergeTasks(serverTasks, localTasks) {
+      // Server tasks override local, but preserve local-only tasks
+      const result = {};
+      columns.forEach(col => {
+        const colName = col.name;
+        result[colName] = serverTasks[colName] || localTasks[colName] || [];
+      });
+      return result;
+    }
+    
+    // ============ RENDERING ============
+    function renderAll() {
+      renderAgents();
+      renderKanban();
+      renderJobs();
+    }
+    
+    function renderAgents() {
+      const el = document.getElementById('agent-status');
+      el.innerHTML = Object.entries(agents).map(([key, agent]) => `
+        <div class="flex flex-col items-center gap-1">
+          <span class="w-2 h-2 ${agent.status === 'online' ? 'dot-online' : agent.status === 'busy' ? 'dot-busy' : 'dot-away'} rounded-full ${agent.status === 'online' ? 'animate-pulse' : ''}"></span>
+          <span class="text-white text-[8px]">${agent.name}</span>
         </div>
-        <div class="relative w-8 h-8">
-          <svg class="w-8 h-8 -rotate-90">
-            <circle cx="16" cy="16" r="${radius}" stroke="rgba(255,255,255,0.1)" stroke-width="3" fill="none" />
-            <circle cx="16" cy="16" r="${radius}" stroke="${job.color}" stroke-width="3" fill="none" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" stroke-linecap="round" />
-          </svg>
-          <span class="absolute inset-0 flex items-center justify-center text-[8px] text-white font-mono">${job.progress}%</span>
+      `).join('');
+    }
+    
+    function renderKanban() {
+      const kanbanEl = document.getElementById('kanban');
+      kanbanEl.innerHTML = '';
+      
+      columns.forEach(col => {
+        const colTasks = tasks[col.name] || [];
+        const colDiv = document.createElement('div');
+        colDiv.className = 'flex-1 min-w-0 flex flex-col';
+        colDiv.dataset.column = col.name;
+        
+        colDiv.innerHTML = `
+          <div class="flex items-center gap-2 mb-2">
+            <div class="w-1 h-4 ${col.bar} rounded-full"></div>
+            <span class="text-white font-semibold text-xs">${col.name}</span>
+            <span class="text-gray-400 text-xs">${colTasks.length}</span>
+          </div>
+          <div class="flex-1 space-y-2 overflow-y-auto drop-zone" data-column="${col.name}">
+            ${colTasks.map(task => renderTaskCard(task, col)).join('')}
+          </div>
+        `;
+        
+        kanbanEl.appendChild(colDiv);
+      });
+      
+      // Re-setup drag and drop after rendering
+      setupDragAndDrop();
+    }
+    
+    function renderTaskCard(task, column) {
+      const isActive = task.status === 'progress';
+      const agent = task.assigned_agent ? agents[task.assigned_agent] : null;
+      const agentBadge = agent ? `<span class="agent-badge ${agent.color}" title="${agent.name}">${agent.name.charAt(0)}</span>` : '';
+      
+      // Priority indicator
+      const priorityColors = {
+        critical: '#ef4444',
+        high: '#f97316',
+        medium: '#eab308',
+        low: '#22c55e'
+      };
+      const priorityDot = `<span class="w-1.5 h-1.5 rounded-full" style="background-color: ${priorityColors[task.priority] || '#6b7280'}"></span>`;
+      
+      return `
+        <div class="task-card ${column.class} ${isActive ? 'task-active' : ''}" 
+             draggable="true" 
+             data-task-id="${task.id}"
+             data-column="${column.name}">
+          <div class="flex items-center gap-1.5 mb-1">
+            ${priorityDot}
+            ${agentBadge}
+            <span class="w-1.5 h-1.5 rounded-full ${column.dot}"></span>
+          </div>
+          <p class="text-white text-xs font-medium truncate" contenteditable="true" 
+             data-field="task_name">${task.task_name}</p>
+          ${task.tags ? `<div class="flex gap-1 mt-1 flex-wrap">${task.tags.map(t => `<span class="text-[8px] bg-white/5 text-gray-400 px-1.5 py-0.5 rounded">${t}</span>`).join('')}</div>` : ''}
         </div>
       `;
-      jobsEl.appendChild(jobDiv);
-    });
+    }
+    
+    function renderJobs() {
+      const jobsEl = document.getElementById('jobs');
+      jobsEl.innerHTML = scheduledJobs.map(job => {
+        const radius = 16;
+        const circumference = 2 * Math.PI * radius;
+        const offset = circumference - (job.progress / 100) * circumference;
+        
+        return `
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-white text-xs">${job.name}</p>
+              <p class="text-gray-500 text-[8px]">${job.freq}</p>
+            </div>
+            <div class="relative w-8 h-8">
+              <svg class="w-8 h-8 -rotate-90">
+                <circle cx="16" cy="16" r="${radius}" stroke="rgba(255,255,255,0.1)" stroke-width="3" fill="none" />
+                <circle cx="16" cy="16" r="${radius}" stroke="${job.color}" stroke-width="3" fill="none" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" stroke-linecap="round" />
+              </svg>
+              <span class="absolute inset-0 flex items-center justify-center text-[8px] text-white font-mono">${job.progress}%</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+    
+    // ============ DRAG AND DROP ============
+    function setupDragAndDrop() {
+      const cards = document.querySelectorAll('.task-card');
+      const dropZones = document.querySelectorAll('.drop-zone');
+      
+      cards.forEach(card => {
+        card.addEventListener('dragstart', handleDragStart);
+        card.addEventListener('dragend', handleDragEnd);
+        
+        // Inline editing
+        const titleEl = card.querySelector('[contenteditable="true"]');
+        if (titleEl) {
+          titleEl.addEventListener('blur', handleTitleEdit);
+          titleEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              titleEl.blur();
+            }
+          });
+        }
+      });
+      
+      dropZones.forEach(zone => {
+        zone.addEventListener('dragover', handleDragOver);
+        zone.addEventListener('dragleave', handleDragLeave);
+        zone.addEventListener('drop', handleDrop);
+      });
+    }
+    
+    let draggedTask = null;
+    let sourceColumn = null;
+    
+    function handleDragStart(e) {
+      draggedTask = e.target;
+      sourceColumn = e.target.dataset.column;
+      e.target.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    }
+    
+    function handleDragEnd(e) {
+      e.target.classList.remove('dragging');
+      document.querySelectorAll('.drop-zone').forEach(z => z.classList.remove('drop-zone-active'));
+    }
+    
+    function handleDragOver(e) {
+      e.preventDefault();
+      e.currentTarget.classList.add('drop-zone-active');
+    }
+    
+    function handleDragLeave(e) {
+      e.currentTarget.classList.remove('drop-zone-active');
+    }
+    
+    function handleDrop(e) {
+      e.preventDefault();
+      e.currentTarget.classList.remove('drop-zone-active');
+      
+      const targetColumn = e.currentTarget.dataset.column;
+      if (!draggedTask || !targetColumn || targetColumn === sourceColumn) return;
+      
+      const taskId = draggedTask.dataset.taskId;
+      moveTask(taskId, sourceColumn, targetColumn);
+    }
+    
+    function moveTask(taskId, fromColumn, toColumn) {
+      const taskIndex = tasks[fromColumn].findIndex(t => t.id === taskId);
+      if (taskIndex === -1) return;
+      
+      const task = tasks[fromColumn].splice(taskIndex, 1)[0];
+      
+      // Update status based on column
+      const statusMap = {
+        'INBOX': 'todo',
+        'ASSIGNED': 'todo',
+        'IN PROGRESS': 'progress',
+        'REVIEW': 'review',
+        'DONE': 'done'
+      };
+      task.status = statusMap[toColumn];
+      
+      tasks[toColumn].push(task);
+      
+      saveToLocalStorage();
+      renderAll();
+      
+      // Send webhook if configured
+      if (CONFIG.webhookUrl) {
+        sendWebhook({ action: 'task_moved', task, from: fromColumn, to: toColumn });
+      }
+    }
+    
+    function handleTitleEdit(e) {
+      const taskId = e.target.closest('.task-card').dataset.taskId;
+      const column = e.target.closest('.task-card').dataset.column;
+      const newTitle = e.target.textContent.trim();
+      
+      const task = tasks[column].find(t => t.id === taskId);
+      if (task && task.task_name !== newTitle) {
+        task.task_name = newTitle;
+        saveToLocalStorage();
+        
+        if (CONFIG.webhookUrl) {
+          sendWebhook({ action: 'task_updated', task });
+        }
+      }
+    }
+    
+    // ============ LOCAL STORAGE ============
+    function saveToLocalStorage() {
+      localStorage.setItem(CONFIG.storageKey, JSON.stringify(tasks));
+    }
+    
+    // ============ WEBHOOK ============
+    async function sendWebhook(data) {
+      try {
+        await fetch(CONFIG.webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+      } catch (e) {
+        console.log('Webhook failed:', e);
+      }
+    }
+    
+    // ============ COMMAND CONSOLE ============
+    function setupCommandConsole() {
+      const input = document.getElementById('command-input');
+      const sendBtn = document.getElementById('send-command');
+      
+      const handleCommand = async () => {
+        const cmd = input.value.trim();
+        if (!cmd) return;
+        
+        input.value = '';
+        
+        // Process command
+        const response = await processCommand(cmd);
+        alert(response);
+      };
+      
+      sendBtn.addEventListener('click', handleCommand);
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') handleCommand();
+      });
+    }
+    
+    async function processCommand(cmd) {
+      const lowerCmd = cmd.toLowerCase();
+      
+      // Add task command
+      if (lowerCmd.startsWith('add task:')) {
+        const title = cmd.substring(9).trim();
+        const newTask = {
+          id: Date.now().toString(),
+          task_name: title,
+          assigned_agent: null,
+          status: 'todo',
+          priority: 'medium',
+          tags: []
+        };
+        
+        if (!tasks['INBOX']) tasks['INBOX'] = [];
+        tasks['INBOX'].push(newTask);
+        saveToLocalStorage();
+        renderAll();
+        
+        if (CONFIG.webhookUrl) {
+          sendWebhook({ action: 'task_created', task: newTask });
+        }
+        
+        return `✓ Task "${title}" added to INBOX`;
+      }
+      
+      // Move task command
+      if (lowerCmd.startsWith('move:')) {
+        // Format: move: task_id to COLUMN
+        const match = cmd.match(/move:\s*(\w+)\s+to\s+(\w+)/i);
+        if (match) {
+          const [, taskId, targetCol] = match;
+          
+          // Find task
+          for (const colName of Object.keys(tasks)) {
+            const task = tasks[colName].find(t => t.id === taskId || t.task_name.toLowerCase().includes(taskId.toLowerCase()));
+            if (task) {
+              // Validate column
+              const validCol = columns.find(c => c.name.toUpperCase() === targetCol.toUpperCase());
+              if (validCol) {
+                moveTask(task.id, colName, validCol.name);
+                return `✓ Moved "${task.task_name}" to ${validCol.name}`;
+              }
+              return `✗ Unknown column: ${targetCol}`;
+            }
+          }
+          return `✗ Task not found: ${taskId}`;
+        }
+        return 'Usage: move: <task name/id> to <column>';
+      }
+      
+      // Assign command
+      if (lowerCmd.startsWith('assign:')) {
+        // Format: assign: task_name to AGENT
+        const match = cmd.match(/assign:\s*(.+?)\s+to\s+(\w+)/i);
+        if (match) {
+          const [, taskName, agentName] = match;
+          const upperAgent = agentName.toUpperCase();
+          
+          if (!agents[upperAgent]) {
+            return `✗ Unknown agent: ${agentName}`;
+          }
+          
+          for (const colName of Object.keys(tasks)) {
+            const task = tasks[colName].find(t => t.task_name.toLowerCase().includes(taskName.trim().toLowerCase()));
+            if (task) {
+              task.assigned_agent = upperAgent;
+              saveToLocalStorage();
+              renderAll();
+              
+              if (CONFIG.webhookUrl) {
+                sendWebhook({ action: 'task_assigned', task, agent: upperAgent });
+              }
+              
+              return `✓ Assigned "${task.task_name}" to ${upperAgent}`;
+            }
+          }
+          return `✗ Task not found: ${taskName}`;
+        }
+        return 'Usage: assign: <task name> to <agent>';
+      }
+      
+      // List agents
+      if (lowerCmd === 'agents' || lowerCmd === 'list agents') {
+        return 'Available agents: ' + Object.keys(agents).join(', ');
+      }
+      
+      // Help
+      if (lowerCmd === 'help' || lowerCmd === '?') {
+        return `Commands:
+• add task: <title> - Add new task
+• move: <task> to <column> - Move task
+• assign: <task> to <agent> - Assign task
+• agents - List agents
+• help - Show this help`;
+      }
+      
+      return `Unknown command: "${cmd}". Type "help" for available commands.`;
+    }
+    
+    // ============ START ============
+    init();
   </script>
 </body>
 </html>
