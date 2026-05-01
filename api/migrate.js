@@ -6,17 +6,28 @@ module.exports = async (req, res) => {
   }
 
   try {
+    // Log all env vars (masked)
+    const envInfo = {
+      hasUpstashUrl: !!process.env.UPSTASH_REDIS_REST_URL,
+      hasUpstashToken: !!process.env.UPSTASH_REDIS_REST_TOKEN,
+      hasDbUrl: !!process.env.DATABASE_REDIS_URL,
+      hasDbToken: !!process.env.DATABASE_REDIS_TOKEN,
+      nodeVersion: process.version
+    };
+    
     const { Redis } = require('@upstash/redis');
     
-    const redis = new Redis({
-      url: process.env.UPSTASH_REDIS_REST_URL || process.env.DATABASE_REDIS_URL,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN || process.env.DATABASE_REDIS_TOKEN,
-    });
-
-    const url = process.env.UPSTASH_REDIS_REST_URL || process.env.DATABASE_REDIS_URL;
-    if (!url) {
-      return res.status(500).json({ error: 'Redis URL not configured. Set UPSTASH_REDIS_REST_URL or DATABASE_REDIS_URL env var.' });
+    const redisUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.DATABASE_REDIS_URL;
+    const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.DATABASE_REDIS_TOKEN;
+    
+    if (!redisUrl) {
+      return res.status(500).json({ error: 'Redis URL not configured', env: envInfo });
     }
+
+    const redis = new Redis({
+      url: redisUrl,
+      token: redisToken,
+    });
 
     // Check if Redis has tasks data
     const existingData = await redis.get('tasks');
@@ -25,14 +36,13 @@ module.exports = async (req, res) => {
       // Redis is empty - migrate from tasks.json
       const tasksData = JSON.parse(fs.readFileSync('./tasks.json', 'utf8'));
       await redis.set('tasks', JSON.stringify(tasksData));
-      console.log('✅ Auto-migrated tasks.json to Redis');
-      return res.status(200).json({ success: true, message: 'Migrated from tasks.json', source: 'migration' });
+      return res.status(200).json({ success: true, message: 'Migrated from tasks.json' });
     }
     
     // Redis already has data
-    return res.status(200).json({ success: true, message: 'Redis already populated', source: 'redis' });
+    return res.status(200).json({ success: true, message: 'Redis already populated' });
   } catch (error) {
-    console.error('Migration error:', error.message);
-    res.status(500).json({ error: 'Migration failed: ' + error.message });
+    console.error('Migration error:', error);
+    res.status(500).json({ error: error.message, stack: error.stack });
   }
 };
