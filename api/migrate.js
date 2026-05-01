@@ -1,10 +1,4 @@
-const { Redis } = require('@upstash/redis');
 const fs = require('fs');
-
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL || process.env.DATABASE_REDIS_URL,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN || process.env.DATABASE_REDIS_TOKEN,
-});
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST' && req.method !== 'GET') {
@@ -12,6 +6,13 @@ module.exports = async (req, res) => {
   }
 
   try {
+    const { Redis } = require('@upstash/redis');
+    
+    const redis = new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL || process.env.DATABASE_REDIS_URL,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN || process.env.DATABASE_REDIS_TOKEN,
+    });
+
     const url = process.env.UPSTASH_REDIS_REST_URL || process.env.DATABASE_REDIS_URL;
     if (!url) {
       return res.status(500).json({ error: 'Redis URL not configured. Set UPSTASH_REDIS_REST_URL or DATABASE_REDIS_URL env var.' });
