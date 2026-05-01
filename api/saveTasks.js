@@ -1,16 +1,20 @@
-const { Redis } = require('@upstash/redis');
-
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL || process.env.DATABASE_REDIS_URL,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN || process.env.DATABASE_REDIS_TOKEN,
-});
+const { createClient } = require('redis');
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const redisUrl = process.env.DATABASE_URL;
+  if (!redisUrl) {
+    return res.status(500).json({ error: 'DATABASE_URL not set' });
+  }
+
+  let client;
   try {
+    client = createClient({ url: redisUrl });
+    await client.connect();
+
     const { tasks, columns } = req.body;
     
     // Reconstruct the nested JSON structure from flat tasks array
@@ -38,12 +42,14 @@ module.exports = async (req, res) => {
       });
     }
 
-    // Save to Redis instead of file system
-    await redis.set('tasks', JSON.stringify(data));
+    // Save to Redis
+    await client.set('tasks', JSON.stringify(data));
+    await client.disconnect();
 
     res.status(200).json({ success: true, message: 'Tasks saved to Redis' });
   } catch (error) {
     console.error('Error saving tasks:', error);
-    res.status(500).json({ error: 'Failed to save tasks' });
+    if (client) await client.disconnect();
+    res.status(500).json({ error: 'Failed to save tasks: ' + error.message });
   }
 };
