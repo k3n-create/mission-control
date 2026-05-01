@@ -167,49 +167,36 @@
     let columnNames = [];
 
     async function init() {
-      try {
-        const resp = await fetch('tasks.json');
-        if (resp.ok) {
-          const data = await resp.json();
-          // Flatten nested JSON into flat tasks array
-          tasks = [];
-          columnNames = Object.keys(data); // column names from JSON keys
-          for (const col of columnNames) {
-            const colTasks = data[col];
-            if (Array.isArray(colTasks)) {
-              for (const t of colTasks) {
-                tasks.push({
-                  id: t.id,
-                  title: t.task_name,
-                  description: '',
-                  assignedTo: t.assigned_agent || '',
-                  tags: t.tags || [],
-                  column: col,
-                  priority: t.priority,
-                  status: t.status
-                });
-              }
-            }
-          }
-          saveTasks();
-          saveColumns();
-        } else {
-          throw new Error('Failed to load tasks.json');
-        }
-      } catch (e) {
-        console.error('Error loading tasks.json, falling back to localStorage', e);
-        const savedColumns = localStorage.getItem(STORAGE_COLUMNS_KEY);
-        columnNames = savedColumns ? JSON.parse(savedColumns) : [...DEFAULT_COLUMNS];
-        if (!savedColumns) saveColumns();
+      // Load columns from LocalStorage as usual
+      const savedColumns = localStorage.getItem(STORAGE_COLUMNS_KEY);
+      columnNames = savedColumns ? JSON.parse(savedColumns) : [...DEFAULT_COLUMNS];
+      if (!savedColumns) saveColumns();
 
-        const savedTasks = localStorage.getItem(STORAGE_TASKS_KEY);
-        tasks = savedTasks ? JSON.parse(savedTasks) : [
-          { id: '1', title: 'Initialize Dashboard', description: 'Load system frameworks', tags: ['system'], assignedTo: 'JARVIS', column: columnNames[0] },
-          { id: '2', title: 'Setup LocalStorage', description: 'Enable data persistence', tags: ['database'], assignedTo: 'JARVIS', column: columnNames[0] }
-        ];
-        if (!savedTasks) saveTasks();
+      try {
+        // FETCH from the server file that Jarvis can edit
+        const response = await fetch('tasks.json');
+        const data = await response.json();
+
+        // Mapping: Convert nested JSON (Columns as keys) into a flat array for the UI
+        tasks = Object.keys(data).flatMap(colName => 
+          data[colName].map(task => ({
+            ...task,
+            id: task.id.toString(),
+            title: task.task_name, // Map task_name to title
+            description: task.description || '',
+            assignedTo: task.assigned_agent || '', // Map assigned_agent to assignedTo
+            tags: task.tags || [],
+            column: colName // The key name (e.g. "INBOX") becomes the column property
+          }))
+        );
+
+        console.log("System Live: Syncing with tasks.json");
+        renderBoard();
+      } catch (error) {
+        console.error("Critical: Could not sync with tasks.json. Check file permissions.", error);
+        // Fallback to empty board if fetch fails
+        renderBoard();
       }
-      renderBoard();
     }
 
     function saveTasks() { localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(tasks)); }
