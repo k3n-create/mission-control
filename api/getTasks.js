@@ -1,9 +1,9 @@
 const { Redis } = require('@upstash/redis');
 
 const getRedisClient = () => {
-  const dbUrl = process.env.DATABASE_URL;
+  const dbUrl = process.env.KV_URL;
   if (!dbUrl) {
-    throw new Error('DATABASE_URL not set');
+    throw new Error('KV_URL not set');
   }
   
   // Extract credentials from redis://default:password@host:port
@@ -30,9 +30,9 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const redisUrl = process.env.DATABASE_URL;
+  const redisUrl = process.env.KV_URL;
   if (!redisUrl) {
-    return res.status(500).json({ error: 'DATABASE_URL not set' });
+    return res.status(500).json({ error: 'KV_URL not set' });
   }
 
   let redisClient;
