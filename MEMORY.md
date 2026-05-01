@@ -95,6 +95,25 @@ A Next.js kanban-style task management dashboard with a dark cyberpunk theme.
 
 ---
 
+## Dashboard Creation & Troubleshooting
+
+### How the Dashboard Was Created
+- **Single HTML file**: All HTML/CSS/JS inline for easy deployment
+- **Framework**: Tailwind via CDN (`https://cdn.tailwindcss.com`)
+- **Deployment**: Pushed to GitHub, auto-deploys to Vercel
+- **Data**: Uses `tasks.json` fetched via `fetch()` on load, flattened into tasks array
+- **Persistence**: Tasks stored in nested JSON structure (columns as keys) in `tasks.json`
+
+### Troubleshooting: Stale Configuration Locks
+If the dashboard shows stale data or columns don't update:
+1. **Clear browser cache** - Open DevTools → Application → Storage → Clear localStorage
+2. **Check tasks.json** - Ensure it's properly formatted JSON with column keys
+3. **Verify fetch** - Open browser console, check for fetch errors
+4. **Check column mapping** - The init() function maps `task_name` → `title`, `assigned_agent` → `assignedTo`
+5. **Git sync** - Ensure changes are committed and pushed to GitHub for Vercel deployment
+
+---
+
 **Relationship:**
 *   K3n (Ken) is "The Boss" / Batman.
 *   Jarvis is the "Right Handman" / Alfred.
