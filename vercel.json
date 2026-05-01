@@ -1,15 +1,4 @@
 {
   "cleanUrls": true,
-  "framework": null,
-  "functions": {
-    "api/*.js": {
-      "runtime": "nodejs18"
-    }
-  },
-  "rewrites": [
-    { "source": "/api/saveTasks", "destination": "/api/saveTasks.js" },
-    { "source": "/api/getTasks", "destination": "/api/getTasks.js" },
-    { "source": "/api/test", "destination": "/api/test.js" },
-    { "source": "/api/initdata", "destination": "/api/initdata.js" }
-  ]
+  "framework": null
 }
