@@ -76,18 +76,6 @@
       "tags": [
         "security"
       ]
-    },
-    {
-      "id": "321",
-      "task_name": "Heart Beat",
-      "assigned_agent": "JARVIS",
-      "status": "review",
-      "priority": "high",
-      "tags": [
-        "comm",
-        "enc"
-      ],
-      "description": "Read heartbeat.md. Once completed, change status to REVIEW and move the task tile under the REVIEW section. Send me a message summarizing what you read after you finished."
     }
   ],
   "DONE": [
@@ -152,6 +140,18 @@
         "system"
       ],
       "description": "Done"
+    },
+    {
+      "id": "321",
+      "task_name": "Heart Beat",
+      "assigned_agent": "JARVIS",
+      "status": "done",
+      "priority": "high",
+      "tags": [
+        "comm",
+        "enc"
+      ],
+      "description": "Read heartbeat.md. Once completed, change status to REVIEW and move the task tile under the REVIEW section. Send me a message summarizing what you read after you finished."
     }
   ]
 }
