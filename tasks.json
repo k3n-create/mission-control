@@ -1,8 +1,8 @@
 {
   "INBOX": [
     {
-      "id": "1",
-      "task_name": "Upgrade Protocols",
+      "id": "321",
+      "task_name": "Heart Beat",
       "assigned_agent": null,
       "status": "todo",
       "priority": "high",
@@ -11,6 +11,7 @@
         "enc"
       ]
     },
+    "description": "Read heartbeat.md, once completed change status to REVIEW. Then move the task tile under REVIEW section. Send me a message summarizing what you read after you finished. 
     {
       "id": "2",
       "task_name": "Q2 Revenue Reports",
@@ -141,16 +142,16 @@
       ]
     },
     {
-      "id": "321",
+      "id": "123",
       "task_name": "Soul Task",
       "assigned_agent": "JARVIS",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
       "tags": [
         "read",
         "system"
       ],
-      "description": "Read sould.md, then move this task to REVIEW. When completed, summarize what you read by sendind me a message."
+      "description": "Done"
     }
   ]
 }
