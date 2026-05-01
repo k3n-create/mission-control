@@ -1,15 +1,6 @@
-const { createClient } = require('redis');
+import { createClient } from 'redis';
 
-let redisClient = null;
-
-const getRedisClient = () => {
-  if (!redisClient) {
-    redisClient = createClient({
-      url: process.env.KV_URL,
-    });
-  }
-  return redisClient;
-};
+let client;
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
@@ -21,25 +12,20 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: 'KV_URL not set' });
   }
 
-  let client;
   try {
-    client = getRedisClient();
-    
-    if (!client.isOpen) {
+    if (!client) {
+      client = createClient({ url: redisUrl });
       await client.connect();
     }
 
     const { tasks, columns } = req.body;
     
-    // Reconstruct the nested JSON structure from flat tasks array
     const data = {};
     
-    // Initialize each column with empty array
     columns.forEach(col => {
       data[col] = [];
     });
     
-    // Distribute tasks into their columns
     if (Array.isArray(tasks)) {
       tasks.forEach(task => {
         const col = task.column;
@@ -56,7 +42,6 @@ module.exports = async (req, res) => {
       });
     }
 
-    // Save to Redis
     await client.set('tasks', JSON.stringify(data));
 
     return res.status(200).json({ success: true, message: 'Tasks saved to Redis' });

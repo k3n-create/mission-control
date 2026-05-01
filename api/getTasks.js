@@ -1,15 +1,6 @@
-const { createClient } = require('redis');
+import { createClient } from 'redis';
 
-let redisClient = null;
-
-const getRedisClient = () => {
-  if (!redisClient) {
-    redisClient = createClient({
-      url: process.env.KV_URL,
-    });
-  }
-  return redisClient;
-};
+let client;
 
 module.exports = async (req, res) => {
   if (req.method !== 'GET') {
@@ -21,11 +12,9 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: 'KV_URL not set' });
   }
 
-  let client;
   try {
-    client = getRedisClient();
-    
-    if (!client.isOpen) {
+    if (!client) {
+      client = createClient({ url: redisUrl });
       await client.connect();
     }
 
@@ -35,7 +24,6 @@ module.exports = async (req, res) => {
       return res.status(200).json({});
     }
     
-    // Parse if string
     const tasks = typeof result === 'string' ? JSON.parse(result) : result;
     return res.status(200).json(tasks);
   } catch (error) {
