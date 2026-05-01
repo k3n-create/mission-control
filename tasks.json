@@ -1,18 +1,6 @@
 {
   "INBOX": [
     {
-      "id": "123",
-      "task_name": "Soul Task",
-      "assigned_agent": "JARVIS",
-      "status": "done",
-      "priority": "high",
-      "tags": [
-        "read",
-        "system"
-      ],
-      "description": "Read sould.md, then move this file to DONE. Then summarize what you read by sendind me a message."
-    },
-    {
       "id": "1",
       "task_name": "Upgrade Protocols",
       "assigned_agent": null,
@@ -151,6 +139,18 @@
       "tags": [
         "backend"
       ]
+    },
+    {
+      "id": "123",
+      "task_name": "Soul Task",
+      "assigned_agent": "JARVIS",
+      "status": "done",
+      "priority": "high",
+      "tags": [
+        "read",
+        "system"
+      ],
+      "description": "Read sould.md, then move this file to DONE. Then summarize what you read by sendind me a message."
     }
   ]
 }
