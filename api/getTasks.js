@@ -15,6 +15,8 @@ module.exports = async (req, res) => {
   try {
     if (!client) {
       client = createClient({ url: redisUrl });
+    }
+    if (!client.isOpen) {
       await client.connect();
     }
 
