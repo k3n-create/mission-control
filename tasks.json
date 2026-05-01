@@ -1,18 +1,6 @@
 {
   "INBOX": [
     {
-      "id": "321",
-      "task_name": "Heart Beat",
-      "assigned_agent": "JARVIS",
-      "status": "todo",
-      "priority": "high",
-      "tags": [
-        "comm",
-        "enc"
-      ],
-      "description": "Read heartbeat.md. Once completed, change status to REVIEW and move the task tile under the REVIEW section. Send me a message summarizing what you read after you finished."
-    },
-    {
       "id": "2",
       "task_name": "Q2 Revenue Reports",
       "assigned_agent": null,
@@ -88,6 +76,18 @@
       "tags": [
         "security"
       ]
+    },
+    {
+      "id": "321",
+      "task_name": "Heart Beat",
+      "assigned_agent": "JARVIS",
+      "status": "review",
+      "priority": "high",
+      "tags": [
+        "comm",
+        "enc"
+      ],
+      "description": "Read heartbeat.md. Once completed, change status to REVIEW and move the task tile under the REVIEW section. Send me a message summarizing what you read after you finished."
     }
   ],
   "DONE": [
