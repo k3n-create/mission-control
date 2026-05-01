@@ -1,15 +1,35 @@
-import { Redis } from '@upstash/redis';
+const { createClient } = require('redis');
 
-// This is the HTTP-based client (won't crash Vercel)
-const redis = Redis.fromEnv();
+let redisClient = null;
+
+const getRedisClient = () => {
+  if (!redisClient) {
+    redisClient = createClient({
+      url: process.env.KV_URL,
+    });
+  }
+  return redisClient;
+};
 
 module.exports = async (req, res) => {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const redisUrl = process.env.KV_URL;
+  if (!redisUrl) {
+    return res.status(500).json({ error: 'KV_URL not set' });
+  }
+
+  let client;
   try {
-    const result = await redis.get('tasks');
+    client = getRedisClient();
+    
+    if (!client.isOpen) {
+      await client.connect();
+    }
+
+    const result = await client.get('tasks');
     
     if (!result) {
       return res.status(200).json({});
@@ -20,6 +40,6 @@ module.exports = async (req, res) => {
     return res.status(200).json(tasks);
   } catch (error) {
     console.error('Redis Error:', error);
-    return res.status(500).json({ error: 'Failed to fetch tasks' });
+    return res.status(500).json({ error: 'Failed to fetch tasks: ' + error.message });
   }
 };
