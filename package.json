@@ -5,12 +5,15 @@
   "private": true,
   "scripts": {
     "start": "node index.js",
-    "dev": "echo 'No dev server needed'"
+    "build": "echo 'No build step required'",
+    "dev": "echo 'Run npm start'"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.1",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
     "lucide-react": "^0.378.0",
     "react": "^18",
     "react-dom": "^18",
