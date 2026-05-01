@@ -75,26 +75,6 @@
       "tags": [
         "security"
       ]
-    },
-    {
-      "id": "7",
-      "task_name": "Neural Upgrade",
-      "assigned_agent": "NOVA",
-      "status": "progress",
-      "priority": "high",
-      "tags": [
-        "ai"
-      ]
-    },
-    {
-      "id": "8",
-      "task_name": "DB Optimization",
-      "assigned_agent": "JARVIS",
-      "status": "progress",
-      "priority": "medium",
-      "tags": [
-        "backend"
-      ]
     }
   ],
   "REVIEW": [
@@ -134,6 +114,26 @@
       "id": "12",
       "task_name": "API Gateway",
       "assigned_agent": null,
+      "status": "done",
+      "priority": "medium",
+      "tags": [
+        "backend"
+      ]
+    },
+    {
+      "id": "7",
+      "task_name": "Neural Upgrade",
+      "assigned_agent": "NOVA",
+      "status": "done",
+      "priority": "high",
+      "tags": [
+        "ai"
+      ]
+    },
+    {
+      "id": "8",
+      "task_name": "DB Optimization",
+      "assigned_agent": "JARVIS",
       "status": "done",
       "priority": "medium",
       "tags": [
