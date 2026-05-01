@@ -7,9 +7,9 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const redisUrl = process.env.KV_URL;
+  const redisUrl = process.env.DATABASE_URL;
   if (!redisUrl) {
-    return res.status(500).json({ error: 'KV_URL not set' });
+    return res.status(500).json({ error: 'DATABASE_URL not set' });
   }
 
   try {
