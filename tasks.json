@@ -4,9 +4,12 @@
       "id": "999",
       "task_name": "Memory Task",
       "assigned_agent": "JARVIS",
-      "status": "todo",
+      "status": "done",
       "priority": "high",
-      "tags": ["memory", "system"],
+      "tags": [
+        "memory",
+        "system"
+      ],
       "description": "Update memory.md with troubleshooting steps for stale configuration locks, remember how you created the dashboard so you know what to trouble shoot in the future."
     },
     {
@@ -15,7 +18,10 @@
       "assigned_agent": null,
       "status": "todo",
       "priority": "high",
-      "tags": ["comm", "enc"]
+      "tags": [
+        "comm",
+        "enc"
+      ]
     },
     {
       "id": "2",
@@ -23,7 +29,9 @@
       "assigned_agent": null,
       "status": "todo",
       "priority": "medium",
-      "tags": ["finance"]
+      "tags": [
+        "finance"
+      ]
     },
     {
       "id": "3",
@@ -31,7 +39,9 @@
       "assigned_agent": null,
       "status": "todo",
       "priority": "critical",
-      "tags": ["security"]
+      "tags": [
+        "security"
+      ]
     },
     {
       "id": "13",
@@ -39,7 +49,10 @@
       "assigned_agent": "JARVIS",
       "status": "todo",
       "priority": "medium",
-      "tags": ["feature", "ui"]
+      "tags": [
+        "feature",
+        "ui"
+      ]
     }
   ],
   "ASSIGNED": [
@@ -49,7 +62,9 @@
       "assigned_agent": "JARVIS",
       "status": "todo",
       "priority": "critical",
-      "tags": ["security"]
+      "tags": [
+        "security"
+      ]
     },
     {
       "id": "5",
@@ -57,7 +72,9 @@
       "assigned_agent": "AXEL",
       "status": "todo",
       "priority": "medium",
-      "tags": ["frontend"]
+      "tags": [
+        "frontend"
+      ]
     }
   ],
   "IN PROGRESS": [
@@ -67,7 +84,9 @@
       "assigned_agent": "BLAZE",
       "status": "progress",
       "priority": "critical",
-      "tags": ["security"]
+      "tags": [
+        "security"
+      ]
     }
   ],
   "REVIEW": [
@@ -77,7 +96,9 @@
       "assigned_agent": "SAGE",
       "status": "review",
       "priority": "medium",
-      "tags": ["security"]
+      "tags": [
+        "security"
+      ]
     }
   ],
   "DONE": [
@@ -87,7 +108,9 @@
       "assigned_agent": null,
       "status": "done",
       "priority": "low",
-      "tags": ["infra"]
+      "tags": [
+        "infra"
+      ]
     },
     {
       "id": "11",
@@ -95,7 +118,9 @@
       "assigned_agent": null,
       "status": "done",
       "priority": "low",
-      "tags": ["docs"]
+      "tags": [
+        "docs"
+      ]
     },
     {
       "id": "12",
@@ -103,7 +128,9 @@
       "assigned_agent": null,
       "status": "done",
       "priority": "medium",
-      "tags": ["backend"]
+      "tags": [
+        "backend"
+      ]
     },
     {
       "id": "7",
@@ -111,7 +138,9 @@
       "assigned_agent": "NOVA",
       "status": "done",
       "priority": "high",
-      "tags": ["ai"]
+      "tags": [
+        "ai"
+      ]
     },
     {
       "id": "8",
@@ -119,7 +148,9 @@
       "assigned_agent": "JARVIS",
       "status": "done",
       "priority": "medium",
-      "tags": ["backend"]
+      "tags": [
+        "backend"
+      ]
     }
   ]
 }
