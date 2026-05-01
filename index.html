@@ -203,7 +203,7 @@
       localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(tasks)); 
       
       // Also save to server
-      fetch('/api/save-tasks', {
+      fetch('/api/saveTasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tasks, columns: columnNames })
