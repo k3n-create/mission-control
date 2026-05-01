@@ -105,7 +105,9 @@ module.exports = async (req, res) => {
   } catch (error) {
     return res.status(200).json({ 
       success: false, 
-      message: 'Error: ' + error.message 
+      message: 'Error: ' + error.message,
+      url: redisUrl ? 'URL present' : 'no URL',
+      urlStart: redisUrl ? redisUrl.substring(0, 20) : 'N/A'
     });
   }
 };
