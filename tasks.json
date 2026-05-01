@@ -7,7 +7,7 @@
       "status": "todo",
       "priority": "high",
       "tags": ["memory", "system"],
-      "description": "Update memory.md with troubleshooting steps for stale configuration locks, remember how you created the dashboard so you know what to trouble shoot in the future."
+      "description": "Read Soul.md, after you finish omve this task to DONE then tell me what you did."
     },
     {
       "id": "1",
