@@ -19,6 +19,7 @@
   "DONE": [
     {"id": "10", "task_name": "Network Map", "assigned_agent": null, "status": "done", "priority": "low", "tags": ["infra"]},
     {"id": "11", "task_name": "Agent Manual", "assigned_agent": null, "status": "done", "priority": "low", "tags": ["docs"]},
-    {"id": "12", "task_name": "API Gateway", "assigned_agent": null, "status": "done", "priority": "medium", "tags": ["backend"]}
+    {"id": "12", "task_name": "API Gateway", "assigned_agent": null, "status": "done", "priority": "medium", "tags": ["backend"]},
+    {"id": "13", "task_name": "Add settings modal", "assigned_agent": "JARVIS", "status": "done", "priority": "medium", "tags": ["feature", "ui"]}
   ]
 }
