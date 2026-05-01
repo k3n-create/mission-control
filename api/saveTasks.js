@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase.js';
 
-// TEST_CLIENT_ID - Replace with actual client UUID when provided
-const TEST_CLIENT_ID = '00000000-0000-0000-0000-000000000001';
+// TEST_CLIENT_ID - Real client from Supabase
+const TEST_CLIENT_ID = '5f80e462-ddfb-45fe-874d-7b36463b26d6';
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
