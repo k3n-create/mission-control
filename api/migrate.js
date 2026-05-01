@@ -2,8 +2,8 @@ const { Redis } = require('@upstash/redis');
 const fs = require('fs');
 
 const redis = new Redis({
-  url: process.env.DATABASE_REDIS_URL,
-  token: process.env.DATABASE_REDIS_TOKEN,
+  url: process.env.UPSTASH_REDIS_REST_URL || process.env.DATABASE_REDIS_URL,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN || process.env.DATABASE_REDIS_TOKEN,
 });
 
 module.exports = async (req, res) => {
