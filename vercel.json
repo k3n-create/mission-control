@@ -1,4 +1,10 @@
 {
   "cleanUrls": true,
-  "framework": null
+  "framework": null,
+  "rewrites": [
+    {
+      "source": "/api/save-tasks",
+      "destination": "/api/save-tasks"
+    }
+  ]
 }
