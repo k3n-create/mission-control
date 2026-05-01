@@ -6,10 +6,7 @@
       "assigned_agent": "JARVIS",
       "status": "done",
       "priority": "high",
-      "tags": [
-        "memory",
-        "system"
-      ],
+      "tags": ["memory", "system"],
       "description": "Update memory.md with troubleshooting steps for stale configuration locks, remember how you created the dashboard so you know what to trouble shoot in the future."
     },
     {
