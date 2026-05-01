@@ -5,6 +5,14 @@
     {
       "source": "/api/saveTasks",
       "destination": "/api/saveTasks"
+    },
+    {
+      "source": "/api/getTasks",
+      "destination": "/api/getTasks"
+    },
+    {
+      "source": "/api/migrate",
+      "destination": "/api/migrate"
     }
   ]
 }
