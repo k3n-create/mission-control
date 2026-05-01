@@ -13,11 +13,19 @@ module.exports = async (req, res) => {
   }
   
   try {
+    // Extract base URL (remove credentials if present)
+    let baseUrl = redisUrl;
+    if (redisUrl.includes('@')) {
+      // URL format: redis://username:password@host:port
+      const urlObj = new URL(redisUrl);
+      baseUrl = `${urlObj.protocol}//${urlObj.host}`;
+    }
+    
     // Use fetch to call Upstash REST API
-    const auth = Buffer.from(`${redisUrl}:${redisToken}`).toString('base64');
+    const auth = Buffer.from(`:${redisToken}`).toString('base64');
     
     // Check if tasks key exists
-    const checkRes = await fetch(`${redisUrl}/get/tasks`, {
+    const checkRes = await fetch(`${baseUrl}/get/tasks`, {
       headers: { 'Authorization': `Basic ${auth}` }
     });
     
@@ -27,7 +35,7 @@ module.exports = async (req, res) => {
       // Key doesn't exist - migrate from tasks.json
       const tasksData = JSON.parse(fs.readFileSync('./tasks.json', 'utf8'));
       
-      const setRes = await fetch(`${redisUrl}/set/tasks`, {
+      const setRes = await fetch(`${baseUrl}/set/tasks`, {
         method: 'POST',
         headers: { 
           'Authorization': `Basic ${auth}`,
@@ -66,7 +74,7 @@ module.exports = async (req, res) => {
         moved = true;
         
         // Save back to Redis
-        await fetch(`${redisUrl}/set/tasks`, {
+        await fetch(`${baseUrl}/set/tasks`, {
           method: 'POST',
           headers: { 
             'Authorization': `Basic ${auth}`,
@@ -81,9 +89,9 @@ module.exports = async (req, res) => {
     
     return res.status(200).json({ 
       success: true, 
-      message: moved ? 'Moved "Add settings modal" to REVIEW' : 'Redis already has data',
+      message: moved ? 'Moved "Add settings modal" to REVIEW' : 'Redis already has data, task not found',
       action: moved ? 'move' : 'none',
-      data: existingTasks
+      columns: Object.keys(existingTasks)
     });
   } catch (error) {
     return res.status(200).json({ 
