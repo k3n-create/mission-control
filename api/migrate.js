@@ -6,43 +6,49 @@ module.exports = async (req, res) => {
   }
 
   try {
-    // Log all env vars (masked)
-    const envInfo = {
-      hasUpstashUrl: !!process.env.UPSTASH_REDIS_REST_URL,
-      hasUpstashToken: !!process.env.UPSTASH_REDIS_REST_TOKEN,
-      hasDbUrl: !!process.env.DATABASE_REDIS_URL,
-      hasDbToken: !!process.env.DATABASE_REDIS_TOKEN,
-      nodeVersion: process.version
-    };
-    
-    const { Redis } = require('@upstash/redis');
-    
     const redisUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.DATABASE_REDIS_URL;
     const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.DATABASE_REDIS_TOKEN;
     
     if (!redisUrl) {
-      return res.status(500).json({ error: 'Redis URL not configured', env: envInfo });
+      return res.status(500).json({ error: 'Redis URL not configured. Set UPSTASH_REDIS_REST_URL env var.' });
     }
 
-    const redis = new Redis({
-      url: redisUrl,
-      token: redisToken,
-    });
-
-    // Check if Redis has tasks data
-    const existingData = await redis.get('tasks');
+    // Use fetch to call Upstash REST API directly
+    const auth = Buffer.from(`${redisUrl}:${redisToken}`).toString('base64');
     
-    if (!existingData) {
-      // Redis is empty - migrate from tasks.json
+    // Check if tasks key exists
+    const checkRes = await fetch(`${redisUrl}/get/tasks`, {
+      headers: { 'Authorization': `Basic ${auth}` }
+    });
+    
+    const checkData = await checkRes.json();
+    
+    if (!checkData.result) {
+      // Key doesn't exist - migrate from tasks.json
       const tasksData = JSON.parse(fs.readFileSync('./tasks.json', 'utf8'));
-      await redis.set('tasks', JSON.stringify(tasksData));
-      return res.status(200).json({ success: true, message: 'Migrated from tasks.json' });
+      
+      const setRes = await fetch(`${redisUrl}/set/tasks`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Basic ${auth}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(tasksData)
+      });
+      
+      const setData = await setRes.json();
+      
+      if (setData.error) {
+        throw new Error(setData.error);
+      }
+      
+      return res.status(200).json({ success: true, message: 'Migrated from tasks.json to Redis' });
     }
     
     // Redis already has data
-    return res.status(200).json({ success: true, message: 'Redis already populated' });
+    return res.status(200).json({ success: true, message: 'Redis already populated', data: checkData.result });
   } catch (error) {
     console.error('Migration error:', error);
-    res.status(500).json({ error: error.message, stack: error.stack });
+    res.status(500).json({ error: error.message });
   }
 };
