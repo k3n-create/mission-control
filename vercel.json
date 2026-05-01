@@ -16,8 +16,8 @@
       "destination": "/api/getTasks.js"
     },
     {
-      "source": "/api/migrate",
-      "destination": "/api/migrate.js"
+      "source": "/api/redis-setup",
+      "destination": "/api/redis-setup.js"
     },
     {
       "source": "/api/test",
