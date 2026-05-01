@@ -13,6 +13,10 @@
     {
       "source": "/api/migrate",
       "destination": "/api/migrate"
+    },
+    {
+      "source": "/api/test",
+      "destination": "/api/test"
     }
   ]
 }
