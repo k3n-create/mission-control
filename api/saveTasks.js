@@ -1,4 +1,29 @@
-const { createClient } = require('redis');
+const { Redis } = require('@upstash/redis');
+
+const getRedisClient = () => {
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) {
+    throw new Error('DATABASE_URL not set');
+  }
+  
+  // Extract credentials from redis://default:password@host:port
+  const urlMatch = dbUrl.match(/redis:\/\/([^:]+):([^@]+)@(.+):(\d+)/);
+  if (urlMatch) {
+    const [, username, password, host, port] = urlMatch;
+    // For Redis Labs, construct REST endpoint
+    const restUrl = `https://${host}:${port}`;
+    return new Redis({
+      url: restUrl,
+      token: password,
+    });
+  }
+  
+  // Fallback: try as Upstash URL
+  return new Redis({
+    url: dbUrl,
+    token: process.env.DATABASE_TOKEN || '',
+  });
+};
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
@@ -10,10 +35,9 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: 'DATABASE_URL not set' });
   }
 
-  let client;
+  let redisClient;
   try {
-    client = createClient({ url: redisUrl });
-    await client.connect();
+    redisClient = getRedisClient();
 
     const { tasks, columns } = req.body;
     
@@ -43,13 +67,11 @@ module.exports = async (req, res) => {
     }
 
     // Save to Redis
-    await client.set('tasks', JSON.stringify(data));
-    await client.disconnect();
+    await redisClient.set('tasks', JSON.stringify(data));
 
     res.status(200).json({ success: true, message: 'Tasks saved to Redis' });
   } catch (error) {
     console.error('Error saving tasks:', error);
-    if (client) await client.disconnect();
     res.status(500).json({ error: 'Failed to save tasks: ' + error.message });
   }
 };

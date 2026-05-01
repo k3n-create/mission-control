@@ -1,4 +1,29 @@
-const { createClient } = require('redis');
+const { Redis } = require('@upstash/redis');
+
+const getRedisClient = () => {
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) {
+    throw new Error('DATABASE_URL not set');
+  }
+  
+  // Extract credentials from redis://default:password@host:port
+  const urlMatch = dbUrl.match(/redis:\/\/([^:]+):([^@]+)@(.+):(\d+)/);
+  if (urlMatch) {
+    const [, username, password, host, port] = urlMatch;
+    // For Redis Labs, construct REST endpoint
+    const restUrl = `https://${host}:${port}`;
+    return new Redis({
+      url: restUrl,
+      token: password,
+    });
+  }
+  
+  // Fallback: try as Upstash URL
+  return new Redis({
+    url: dbUrl,
+    token: process.env.DATABASE_TOKEN || '',
+  });
+};
 
 module.exports = async (req, res) => {
   if (req.method !== 'GET') {
@@ -10,25 +35,20 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: 'DATABASE_URL not set' });
   }
 
-  let client;
+  let redisClient;
   try {
-    client = createClient({ url: redisUrl });
-    await client.connect();
-
-    const data = await client.get('tasks');
+    redisClient = getRedisClient();
+    const data = await redisClient.get('tasks');
     
     if (!data) {
-      await client.disconnect();
       return res.status(200).json({});
     }
     
     // Parse if string
     const tasks = typeof data === 'string' ? JSON.parse(data) : data;
-    await client.disconnect();
     res.status(200).json(tasks);
   } catch (error) {
     console.error('Error fetching tasks:', error);
-    if (client) await client.disconnect();
     res.status(500).json({ error: 'Failed to fetch tasks: ' + error.message });
   }
 };
