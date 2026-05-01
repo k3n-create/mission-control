@@ -1,5 +1,9 @@
-const fs = require('fs');
-const path = require('path');
+const { Redis } = require('@upstash/redis');
+
+const redis = new Redis({
+  url: process.env.DATABASE_REDIS_URL,
+  token: process.env.DATABASE_REDIS_TOKEN,
+});
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
@@ -34,11 +38,10 @@ module.exports = async (req, res) => {
       });
     }
 
-    // Write to tasks.json in the root directory
-    const filePath = path.join(__dirname, '..', 'tasks.json');
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    // Save to Redis instead of file system
+    await redis.set('tasks', JSON.stringify(data));
 
-    res.status(200).json({ success: true, message: 'Tasks saved successfully' });
+    res.status(200).json({ success: true, message: 'Tasks saved to Redis' });
   } catch (error) {
     console.error('Error saving tasks:', error);
     res.status(500).json({ error: 'Failed to save tasks' });

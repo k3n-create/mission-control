@@ -173,8 +173,8 @@
       if (!savedColumns) saveColumns();
 
       try {
-        // FETCH from the server file that Jarvis can edit
-        const response = await fetch('tasks.json');
+        // FETCH from Redis-backed API
+        const response = await fetch('/api/getTasks');
         const data = await response.json();
 
         // Mapping: Convert nested JSON (Columns as keys) into a flat array for the UI
@@ -190,7 +190,7 @@
           }))
         );
 
-        console.log("System Live: Syncing with tasks.json");
+        console.log("System Live: Syncing with Redis");
         renderBoard();
       } catch (error) {
         console.error("Critical: Could not sync with tasks.json. Check file permissions.", error);
