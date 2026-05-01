@@ -1,16 +1,16 @@
 {
   "INBOX": [
     {
-      "id": "111",
-      "task_name": "Memory Task",
+      "id": "123",
+      "task_name": "Soul Task",
       "assigned_agent": "JARVIS",
-      "status": "done",
+      "status": "todo",
       "priority": "high",
       "tags": [
-        "memory",
+        "read",
         "system"
       ],
-      "description": "Update memory.md with troubleshooting steps for stale configuration locks, remember how you created the dashboard so you know what to trouble shoot in the future."
+      "description": "Read sould.md, then move this file to DONE. Then summarize what you read by sendind me a message."
     },
     {
       "id": "1",
