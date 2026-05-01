@@ -7,21 +7,9 @@
     }
   },
   "rewrites": [
-    {
-      "source": "/api/saveTasks",
-      "destination": "/api/saveTasks.js"
-    },
-    {
-      "source": "/api/getTasks",
-      "destination": "/api/getTasks.js"
-    },
-    {
-      "source": "/api/redis-setup",
-      "destination": "/api/redis-setup.js"
-    },
-    {
-      "source": "/api/test",
-      "destination": "/api/test.js"
-    }
+    { "source": "/api/saveTasks", "destination": "/api/saveTasks.js" },
+    { "source": "/api/getTasks", "destination": "/api/getTasks.js" },
+    { "source": "/api/test", "destination": "/api/test.js" },
+    { "source": "/api/initdata", "destination": "/api/initdata.js" }
   ]
 }
