@@ -34,7 +34,6 @@ const mapStatus = (s) => statusMap[s?.toUpperCase()] || s?.toLowerCase() || 'tod
 
 const TEST_CLIENT_ID = process.env.TEST_CLIENT_ID || '5f80e462-ddfb-45fe-874d-7b36463b26d6';
     
-    console.log("Saving to Supabase:", JSON.stringify(tasksToUpsert));
     const { data, error } = await supabase
       .from('tasks')
       .select('*')
@@ -82,6 +81,7 @@ app.post('/api/tasks', async (req, res) => {
     }
 
     const tasksToUpsert = tasks.map(task => ({
+      // console.log("Task before mapping:", task),
       client_id: TEST_CLIENT_ID,
       id: task.id,
       content: task.title,
@@ -91,10 +91,11 @@ app.post('/api/tasks', async (req, res) => {
       
       updated_at: new Date().toISOString()
     }));
+    console.log("Saving to Supabase:", JSON.stringify(tasksToUpsert));
 
     const { data, error } = await supabase
       .from('tasks')
-      .upsert(tasksToUpsert, { onConflict: 'id,client_id' })
+      .upsert(tasksToUpsert, { onConflict: 'id' })
       .select();
 
     if (error) throw error;
