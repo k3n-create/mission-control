@@ -168,6 +168,7 @@
     let columnNames = [];
 
     async function init() {
+        localStorage.clear();
       // Load columns from LocalStorage as usual
       const savedColumns = localStorage.getItem(STORAGE_COLUMNS_KEY);
       columnNames = savedColumns ? JSON.parse(savedColumns) : [...DEFAULT_COLUMNS];
