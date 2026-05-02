@@ -155,11 +155,11 @@
         tasks: tasks.map(t => ({
           id: t.id,
           content: t.task_name,
-          column: t.column,
+          status: t.column,  // column becomes status
           assignedTo: t.assignedTo,
-          status: t.status,
           priority: t.priority || 3,
-          tags: t.tags || []
+          tags: t.tags || [],
+          description: t.description || ''
         })), 
         columns: columnNames 
       })
