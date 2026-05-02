@@ -61,25 +61,23 @@ app.get('/api/tasks', async (req, res) => {
  if (error) throw error;
 
  const tasksByColumn = {};
- if (data) {
- data.forEach(task => {
- const dashboardStatus = mapStatus(task.status);
- if (!tasksByColumn[dashboardStatus]) {
- tasksByColumn[dashboardStatus] = [];
- }
- tasksByColumn[dashboardStatus].push({
- id: task.id,
- task_name: task.content,
-            agent_id: task.agent_id,
-            description: task.
-            tags: task.tags,
- status: dashboardStatus,
- priority: task.priority
- });
- });
- }
+  if (data) {
+    data.forEach(task => {
+      const dashboardStatus = mapStatus(task.status);
+      if (!tasksByColumn[dashboardStatus]) {
+        tasksByColumn[dashboardStatus] = [];
+      }
+      tasksByColumn[dashboardStatus].push({
+        id: task.id,
+        task_name: task.content,
+        status: dashboardStatus,
+        priority: task.priority,
+        assigned_agent: task.agent_id || ''
+      });
+    });
+  }
 
- res.status(200).json(tasksByColumn);
+  res.status(200).json(tasksByColumn);
  } catch (error) {
  console.error('Error:', error);
  res.status(500).json({ error: error.message });
