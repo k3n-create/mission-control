@@ -118,6 +118,23 @@ app.post('/api/tasks', async (req, res) => {
  }
 });
 
+// Global error handler - auto-create task on 500 errors
+app.use((err, req, res, next) => {
+  console.error('Error:', err);
+  const errorTask = {
+    client_id: TEST_CLIENT_ID || '5f80e462-ddfb-45fe-874d-7b36463b26d6',
+    id: uuidv4(),
+    content: `Error: ${err.message}`,
+    status: 'INBOX',
+    priority: 5,
+    updated_at: new Date().toISOString()
+  };
+  supabase.from('tasks').insert(errorTask).then(({ error }) => {
+    if (error) console.error('Failed to create error task:', error);
+  });
+  res.status(500).json({ error: err.message });
+});
+
 app.listen(PORT, () => {
  console.log(`Server running on port ${PORT}`);
 });
