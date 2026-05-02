@@ -191,6 +191,7 @@
       t.tags = document.getElementById('editTags').value.split(',').map(tag => tag.trim()).filter(tag => tag);
       t.priority = t.priority || 3;
       console.log('Saving task:', JSON.stringify(t));
+        console.log('Tasks to save:', tasks.length);
       await saveTasks();
       renderBoard();
       closeEditModal();
