@@ -37,27 +37,40 @@
   </main>
 
   <div id="editModal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-50">
-    <div class="glass rounded-xl p-8 w-[520px] max-w-full">
-      <h2 class="text-xl font-bold text-white mb-6">Task Protocol</h2>
+    <div class="glass rounded-xl p-8 w-[520px] max-w-full shadow-2xl">
+      <h2 class="text-xl font-bold text-white mb-2">Task Protocol</h2>
+      <p class="text-[10px] text-gray-500 mb-6 tracking-widest uppercase">System Update / Manual Override</p>
       <input type="hidden" id="editTaskId">
-      <div class="space-y-4">
-        <input type="text" id="editTitle" class="w-full bg-black/40 border border-white/10 rounded p-2.5 text-sm" placeholder="Title">
-        <textarea id="editDescription" rows="4" class="w-full bg-black/40 border border-white/10 rounded p-2.5 text-sm" placeholder="Description"></textarea>
+      <div class="space-y-5">
+        <div>
+          <label class="block text-[10px] text-cyan-500 font-bold mb-1.5 uppercase">Title</label>
+          <input type="text" id="editTitle" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm focus:border-cyan-500 outline-none">
+        </div>
+        <div>
+          <label class="block text-[10px] text-cyan-500 font-bold mb-1.5 uppercase">Description</label>
+          <textarea id="editDescription" rows="4" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm focus:border-cyan-500 outline-none"></textarea>
+        </div>
         <div class="grid grid-cols-2 gap-4">
-          <select id="editAssignedTo" class="bg-black/40 border border-white/10 rounded p-2.5 text-sm">
-            <option value="">None</option>
-            <option value="JARVIS">JARVIS</option>
-            <option value="JADE">JADE</option>
-            <option value="K3n">K3n</option>
-          </select>
-          <input type="text" id="editTags" class="bg-black/40 border border-white/10 rounded p-2.5 text-sm" placeholder="tag1, tag2">
+          <div>
+            <label class="block text-[10px] text-cyan-500 font-bold mb-1.5 uppercase">Asset Assigned</label>
+            <select id="editAssignedTo" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm focus:border-cyan-500 outline-none">
+              <option value="">None</option>
+              <option value="JARVIS">JARVIS</option>
+              <option value="JADE">JADE</option>
+              <option value="K3n">K3n</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[10px] text-cyan-500 font-bold mb-1.5 uppercase">Tags</label>
+            <input type="text" id="editTags" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm focus:border-cyan-500 outline-none" placeholder="tag1, tag2">
+          </div>
         </div>
       </div>
-      <div class="flex justify-between mt-8">
-        <button onclick="deleteTask()" class="text-red-400 text-xs font-bold">TERMINATE</button>
-        <div class="flex gap-3">
-          <button onclick="closeEditModal()" class="text-gray-400 text-sm">Exit</button>
-          <button onclick="saveTaskEdit()" class="bg-cyan-600 px-4 py-2 rounded font-bold text-sm">Update</button>
+      <div class="flex justify-between mt-10">
+        <button onclick="deleteTask()" class="text-red-500 text-[11px] font-bold tracking-widest hover:text-red-400">TERMINATE TASK</button>
+        <div class="flex gap-4">
+          <button onclick="closeEditModal()" class="text-gray-400 text-sm hover:text-white">Exit</button>
+          <button onclick="saveTaskEdit()" class="bg-cyan-600 px-6 py-2 rounded text-sm font-bold shadow-lg shadow-cyan-900/20 hover:bg-cyan-500">UPDATE SYSTEM</button>
         </div>
       </div>
     </div>
@@ -78,9 +91,8 @@
       if (!window.supabase) return;
       const client = window.supabase.createClient(supabaseUrl, supabaseKey);
       client.channel('tasks-channel').on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
-          console.log('REALTIME_EVENT_DETECTED:', payload.eventType);
           init(); 
-      }).subscribe((status) => console.log('REALTIME_STATUS:', status));
+      }).subscribe();
     }
 
     async function init() {
@@ -88,7 +100,13 @@
         const res = await fetch('/api/tasks');
         const data = await res.json();
         tasks = Object.keys(data).flatMap(col => data[col].map(t => ({
-          ...t, id: t.id.toString(), column: col.toLowerCase(), assignedTo: t.assigned_agent || '', task_name: t.task_name || 'Untitled', description: t.description || '', tags: t.tags || []
+          ...t, 
+          id: t.id.toString(), 
+          column: col.toLowerCase(), 
+          assignedTo: t.assigned_agent || '', 
+          task_name: t.task_name || 'Untitled',
+          description: t.description || '',
+          tags: t.tags || []
         })));
         renderBoard();
       } catch (e) { console.error("Init failed", e); }
@@ -114,6 +132,7 @@
                 ${t.assignedTo ? `<span class="agent-badge mb-2 block w-fit">${t.assignedTo}</span>` : ''}
                 <div class="text-sm font-semibold text-gray-100">${escapeHtml(t.task_name)}</div>
                 <div class="flex flex-wrap gap-1 mt-2">${(t.tags || []).map(tag => `<span class="tag-pill">${tag}</span>`).join('')}</div>
+                ${t.description ? `<div class="text-[10px] text-gray-500 line-clamp-2 mt-2">${escapeHtml(t.description)}</div>` : ''}
               </div>
             `).join('')}
           </div>
@@ -123,7 +142,7 @@
 
     function allowDrop(e) { e.preventDefault(); }
     function drag(e) { e.dataTransfer.setData("text", e.target.dataset.id); e.target.classList.add('dragging'); }
-    function drop(e) {
+    async function drop(e) {
       e.preventDefault();
       const id = e.dataTransfer.getData("text");
       const columnBody = e.target.closest('.column-body');
@@ -132,8 +151,8 @@
       const task = tasks.find(t => t.id === id);
       if (task && task.column !== newCol) {
         task.column = newCol;
-        saveTasks();
         renderBoard();
+        await saveTasks();
       }
     }
 
@@ -156,6 +175,7 @@
     }
 
     function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    
     function openEditModal(id) {
       const t = tasks.find(task => task.id === id);
       if (!t) return;
@@ -166,27 +186,35 @@
       document.getElementById('editTags').value = (t.tags || []).join(', ');
       document.getElementById('editModal').classList.replace('hidden', 'flex');
     }
+
     function closeEditModal() { document.getElementById('editModal').classList.replace('flex', 'hidden'); }
+
     async function saveTaskEdit() {
       const id = document.getElementById('editTaskId').value;
       const t = tasks.find(task => task.id === id);
-      if (!t) return;
-      t.task_name = document.getElementById('editTitle').value;
-      t.description = document.getElementById('editDescription').value;
-      t.assignedTo = document.getElementById('editAssignedTo').value;
-      t.tags = document.getElementById('editTags').value.split(',').map(tag => tag.trim()).filter(tag => tag);
-      renderBoard();
-      await saveTasks();
+      if (t) {
+        t.task_name = document.getElementById('editTitle').value.trim() || 'Untitled';
+        t.description = document.getElementById('editDescription').value.trim();
+        t.assignedTo = document.getElementById('editAssignedTo').value;
+        const tagsStr = document.getElementById('editTags').value;
+        t.tags = tagsStr ? tagsStr.split(',').map(tag => tag.trim()).filter(tag => tag) : [];
+        renderBoard();
+        await saveTasks();
+      }
       closeEditModal();
     }
+
     async function deleteTask() {
       const id = document.getElementById('editTaskId').value;
-      tasks = tasks.filter(t => t.id !== id);
-      renderBoard();
-      await saveTasks();
-      closeEditModal();
+      if (confirm("Terminate this task permanently?")) {
+        tasks = tasks.filter(t => t.id !== id);
+        renderBoard();
+        await saveTasks();
+        closeEditModal();
+      }
     }
-    window.onload = () => { try { initRealtime(); init(); } catch(e) { console.error(e); } };
+
+    window.onload = () => { initRealtime(); init(); };
   </script>
 </body>
 </html>
