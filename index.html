@@ -42,7 +42,6 @@
       <input type="hidden" id="editTaskId">
       <div class="space-y-4">
         <input type="text" id="editTitle" class="w-full bg-black/40 border border-white/10 rounded p-2.5 text-sm" placeholder="Title">
-        <textarea id="editDescription" rows="4" class="w-full bg-black/40 border border-white/10 rounded p-2.5 text-sm" placeholder="Description"></textarea>
         <div class="grid grid-cols-2 gap-4">
           <select id="editAssignedTo" class="bg-black/40 border border-white/10 rounded p-2.5 text-sm">
             <option value="">None</option>
@@ -89,7 +88,12 @@
         const res = await fetch('/api/tasks');
         const data = await res.json();
         tasks = Object.keys(data).flatMap(col => data[col].map(t => ({
-          ...t, id: t.id.toString(), column: col.toLowerCase(), assignedTo: t.agent_id || '', task_name: t.task_name || 'Untitled'
+          ...t, 
+          id: t.id.toString(), 
+          column: col.toLowerCase(), 
+          assignedTo: t.assigned_agent || '', 
+          task_name: t.task_name || 'Untitled',
+          tags: t.tags || []
         })));
         renderBoard();
       } catch (e) { console.error("Init failed", e); }
@@ -113,8 +117,7 @@
             ${tasks.filter(t => t.column === col).map(t => `
               <div class="card p-4 cursor-grab mb-3" draggable="true" ondragstart="drag(event)" data-id="${t.id}" onclick="openEditModal('${t.id}')">
                 ${t.assignedTo ? `<span class="agent-badge mb-2 block w-fit">${t.assignedTo}</span>` : ''}
-                <div class="text-base font-semibold text-gray-100 mb-1">${escapeHtml(t.task_name)}</div>
-                ${// t.description ? `<div class="text-xs text-gray-500 mb-2">${escapeHtml(t.description)}</div>` : '' }
+                <div class="text-sm font-semibold text-gray-100">${escapeHtml(t.task_name)}</div>
                 <div class="flex flex-wrap gap-1 mt-2">${(t.tags || []).map(tag => `<span class="tag-pill">${tag}</span>`).join('')}</div>
               </div>
             `).join('')}
@@ -134,48 +137,52 @@
       const task = tasks.find(t => t.id === id);
       if (task && task.column !== newCol) {
         task.column = newCol;
-        saveTasks();
+        await saveTasks();
         renderBoard();
       }
     }
 
     async function createNewTask(col) {
-      const newTask = { id: crypto.randomUUID(), task_name: 'New Strategic Objective', column: col, description: '', assignedTo: '', tags: [] };
+      const newTask = { 
+        id: crypto.randomUUID(), 
+        task_name: 'New Strategic Objective', 
+        column: col, 
+        assignedTo: '', 
+        tags: [],
+        priority: 3
+      };
       tasks.push(newTask);
-      renderBoard();
       await saveTasks();
+      renderBoard();
       openEditModal(newTask.id);
     }
 
     async function saveTasks() {
       try {
+        const payload = tasks.map(t => ({
+          id: t.id,
+          content: t.task_name,
+          status: t.column,
+          agent_id: t.assignedTo,
+          priority: t.priority || 3,
+          tags: t.tags || []
+        }));
+        
         const response = await fetch('/api/tasks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-        tasks: tasks.map(t => ({
-          id: t.id,
-          content: t.task_name,
-          status: t.column,  // column becomes status
-          agent_id: t.assignedTo,
-          priority: t.priority || 3,
-          tags: t.tags || [],
-          description: t.description || ''
-        })), 
-        columns: columnNames 
-      })
+          body: JSON.stringify({ tasks: payload, columns: columnNames })
         });
-        if (!response.ok) throw new Error('Network error');
+        if (!response.ok) throw new Error('Network error: ' + response.status);
       } catch (e) { console.error("Save failed", e); }
     }
 
     function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
     function openEditModal(id) {
-      const t = tasks.find(task => task.id.toString() === id);
+      const t = tasks.find(task => task.id === id);
       if (!t) return;
       document.getElementById('editTaskId').value = t.id;
       document.getElementById('editTitle').value = t.task_name;
-      document.getElementById('editDescription').value = t.description || '';
       document.getElementById('editAssignedTo').value = t.assignedTo || '';
       document.getElementById('editTags').value = (t.tags || []).join(', ');
       document.getElementById('editModal').classList.replace('hidden', 'flex');
@@ -183,15 +190,11 @@
     function closeEditModal() { document.getElementById('editModal').classList.replace('flex', 'hidden'); }
     async function saveTaskEdit() {
       const id = document.getElementById('editTaskId').value;
-      const t = tasks.find(task => task.id === id || task.id.toString() === id);
-      if (!t) { console.error('Task not found:', id); return; }
+      const t = tasks.find(task => task.id === id);
+      if (!t) return;
       t.task_name = document.getElementById('editTitle').value;
-      t.description = document.getElementById('editDescription').value;
       t.assignedTo = document.getElementById('editAssignedTo').value;
       t.tags = document.getElementById('editTags').value.split(',').map(tag => tag.trim()).filter(tag => tag);
-      t.priority = t.priority || 3;
-      console.log('Saving task:', JSON.stringify(t));
-        console.log('Tasks to save:', tasks.length);
       await saveTasks();
       renderBoard();
       closeEditModal();
