@@ -243,7 +243,7 @@
       return `
         <div class="card p-4 cursor-grab active:cursor-grabbing" draggable="true" data-id="${task.id}" onclick="openEditModal('${task.id}')">
           ${badgeHtml}
-          <div class="font-semibold text-sm text-gray-100 mb-2 leading-tight">${escapeHtml(task.title)}</div>
+          <div class="font-semibold text-sm text-gray-100 mb-2 leading-tight">${escapeHtml(task.task_name)}</div>
           <div class="flex flex-wrap gap-1 mb-3">${tagsHtml}</div>
           ${task.description ? `<div class="text-[11px] text-gray-500 line-clamp-2 font-medium">${escapeHtml(task.description)}</div>` : ''}
         </div>
@@ -328,7 +328,7 @@
       const task = tasks.find(t => t.id === taskId);
       if (!task) return;
       document.getElementById('editTaskId').value = task.id;
-      document.getElementById('editTitle').value = task.title;
+      document.getElementById('editTitle').value = task.task_name;
       document.getElementById('editDescription').value = task.description || '';
       document.getElementById('editAssignedTo').value = task.assignedTo || '';
       document.getElementById('editTags').value = (task.tags || []).join(', ');
@@ -341,7 +341,7 @@
       const id = document.getElementById('editTaskId').value;
       const task = tasks.find(t => t.id === id);
       if (!task) return;
-      task.title = document.getElementById('editTitle').value.trim() || 'New Task';
+      task.task_name = document.getElementById('editTitle').value.trim() || 'New Task';
       task.description = document.getElementById('editDescription').value.trim();
       task.assignedTo = document.getElementById('editAssignedTo').value;
       const tagsStr = document.getElementById('editTags').value;
