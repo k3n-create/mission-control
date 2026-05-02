@@ -174,7 +174,7 @@
 
       try {
         // FETCH from Redis-backed API
-        const response = await fetch('/api/getTasks');
+        const response = await fetch('/api/tasks');
         const data = await response.json();
 
         // Mapping: Convert nested JSON (Columns as keys) into a flat array for the UI
@@ -203,7 +203,7 @@
       localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(tasks)); 
       
       // Also save to server
-      fetch('/api/saveTasks', {
+      fetch('/api/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tasks, columns: columnNames })
