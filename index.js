@@ -75,7 +75,6 @@ app.post('/api/tasks', async (req, res) => {
       content: task.title,
       status: task.column,
       assigned_to: task.assignedTo || null,
-      status: task.status || 'todo',
       priority: task.priority || 'medium',
       tags: task.tags || [],
       updated_at: new Date().toISOString()
