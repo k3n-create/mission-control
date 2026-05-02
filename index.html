@@ -30,6 +30,9 @@
         <p class="text-[10px] text-cyan-500 font-mono tracking-widest uppercase">System Live</p>
       </div>
     </div>
+    <div class="flex items-center gap-2">
+        <span class="text-[10px] font-bold text-cyan-500 tracking-widest uppercase">Admin Override Active</span>
+    </div>
   </header>
 
   <main class="p-6 h-[calc(100vh-88px)]">
@@ -39,38 +42,26 @@
   <div id="editModal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-50">
     <div class="glass rounded-xl p-8 w-[520px] max-w-full shadow-2xl">
       <h2 class="text-xl font-bold text-white mb-2">Task Protocol</h2>
-      <p class="text-[10px] text-gray-500 mb-6 tracking-widest uppercase">Manual Override Active</p>
+      <p class="text-[10px] text-gray-500 mb-6 tracking-widest uppercase">Direct Database Injection</p>
       <input type="hidden" id="editTaskId">
       <div class="space-y-5">
-        <div>
-          <label class="block text-[10px] text-cyan-500 font-bold mb-1.5 uppercase">Title</label>
-          <input type="text" id="editTitle" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm outline-none focus:border-cyan-500">
-        </div>
-        <div>
-          <label class="block text-[10px] text-cyan-500 font-bold mb-1.5 uppercase">Description</label>
-          <textarea id="editDescription" rows="4" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm outline-none focus:border-cyan-500"></textarea>
-        </div>
+        <input type="text" id="editTitle" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm focus:border-cyan-500 outline-none" placeholder="Objective Title">
+        <textarea id="editDescription" rows="4" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm focus:border-cyan-500 outline-none" placeholder="Mission Details"></textarea>
         <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-[10px] text-cyan-500 font-bold mb-1.5 uppercase">Assign Asset</label>
-            <select id="editAssignedTo" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm outline-none">
-              <option value="">None</option>
-              <option value="JARVIS">JARVIS</option>
-              <option value="JADE">JADE</option>
-              <option value="K3n">K3n</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-[10px] text-cyan-500 font-bold mb-1.5 uppercase">Tags</label>
-            <input type="text" id="editTags" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm outline-none" placeholder="tag1, tag2">
-          </div>
+          <select id="editAssignedTo" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm outline-none">
+            <option value="">Assign Asset</option>
+            <option value="JARVIS">JARVIS</option>
+            <option value="JADE">JADE</option>
+            <option value="K3n">K3n</option>
+          </select>
+          <input type="text" id="editTags" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm outline-none" placeholder="Tags (tag1, tag2)">
         </div>
       </div>
       <div class="flex justify-between mt-10">
         <button onclick="deleteTask()" class="text-red-500 text-[11px] font-bold tracking-widest hover:text-red-400">TERMINATE</button>
         <div class="flex gap-4">
           <button onclick="closeEditModal()" class="text-gray-400 text-sm">Exit</button>
-          <button onclick="saveTaskEdit()" class="bg-cyan-600 px-6 py-2 rounded text-sm font-bold shadow-lg hover:bg-cyan-500">UPDATE SYSTEM</button>
+          <button onclick="saveTaskEdit()" class="bg-cyan-600 px-6 py-2 rounded text-sm font-bold shadow-lg hover:bg-cyan-500">PUSH UPDATE</button>
         </div>
       </div>
     </div>
@@ -81,62 +72,43 @@
     const displayNames = { 'todo': 'INBOX', 'assigned': 'ASSIGNED', 'in_progress': 'IN PROGRESS', 'review': 'REVIEW', 'done': 'DONE' };
     const supabaseUrl = 'https://ljoiifswtizxhtwtilkf.supabase.co';
     const supabaseKey = 'sb_publishable_wICRlh3baVhWG9Lqw4u1Zg_ADbfIMtm';
-    let supabase;
-    let tasks = [];
-    let columnNames = [...DEFAULT_COLUMNS];
-    let isSaving = false;
-    let lastManualActionTime = 0;
+    let supabase, tasks = [], columnNames = [...DEFAULT_COLUMNS], manualLock = false;
 
     function initRealtime() {
       if (!window.supabase) return;
       supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
-      supabase.channel('tasks-channel').on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
-          const timeSinceAction = Date.now() - lastManualActionTime;
-          // Ignore external changes for 5 seconds after any manual override
-          if (!isSaving && timeSinceAction > 5000) {
-            fetchTasksSilently(); 
-          }
+      supabase.channel('tasks-channel').on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
+          if (!manualLock) fetchTasksSilently(); 
       }).subscribe();
     }
 
     async function fetchTasksSilently() {
       try {
         const res = await fetch('/api/tasks');
-        if (!res.ok) return;
         const data = await res.json();
         tasks = Object.keys(data).flatMap(col => data[col].map(t => ({
-          ...t, id: t.id.toString(), column: col.toLowerCase(), assignedTo: t.assigned_agent || '', task_name: t.task_name || t.content || 'Untitled'
+          ...t, id: t.id.toString(), column: col.toLowerCase(), assignedTo: t.assigned_agent || '', task_name: t.task_name || t.content || 'Untitled', description: t.description || '', tags: t.tags || []
         })));
         renderBoard();
       } catch (e) { console.error("Sync failed", e); }
     }
 
-    async function init() {
-      initRealtime();
-      await fetchTasksSilently();
-    }
+    async function init() { initRealtime(); await fetchTasksSilently(); }
 
     function renderBoard() {
       const board = document.getElementById('board');
       board.innerHTML = columnNames.map(col => `
         <div class="column glass rounded-lg p-4">
           <div class="flex justify-between items-center mb-5 border-b border-white/5 pb-3">
-            <div class="flex-1"></div>
-            <div class="flex flex-col items-center">
-              <h3 class="text-[10px] font-bold tracking-[0.3em] text-cyan-500 uppercase">${displayNames[col] || col}</h3>
-              <span class="text-[9px] font-mono text-gray-500 mt-1">UNITS: ${tasks.filter(t => t.column === col).length}</span>
-            </div>
-            <div class="flex-1 flex justify-end">
-              <button onclick="createNewTask('${col}')" class="text-gray-400 hover:text-white font-bold text-lg">+</button>
-            </div>
+            <h3 class="text-[10px] font-bold tracking-[0.3em] text-cyan-500 uppercase">${displayNames[col] || col}</h3>
+            <button onclick="createNewTask('${col}')" class="text-gray-400 hover:text-white font-bold text-lg">+</button>
           </div>
           <div class="column-body space-y-3" data-column="${col}" ondragover="allowDrop(event)" ondrop="drop(event)">
-            ${tasks.filter(t => t.column === col).map(t => `
+            ${tasks.filter(t => t.column === col && !t.isDeleted).map(t => `
               <div class="card p-4 mb-3" draggable="true" ondragstart="drag(event)" data-id="${t.id}" onclick="openEditModal('${t.id}')">
                 ${t.assignedTo ? `<span class="agent-badge mb-2 block w-fit">${t.assignedTo}</span>` : ''}
                 <div class="text-sm font-semibold text-gray-100">${escapeHtml(t.task_name)}</div>
                 <div class="flex flex-wrap gap-1 mt-2">${(t.tags || []).map(tag => `<span class="tag-pill">${tag}</span>`).join('')}</div>
-                ${t.description ? `<div class="text-[10px] text-gray-500 line-clamp-2 mt-2">${escapeHtml(t.description)}</div>` : ''}
               </div>
             `).join('')}
           </div>
@@ -146,106 +118,58 @@
 
     function allowDrop(e) { e.preventDefault(); }
     function drag(e) { e.dataTransfer.setData("text", e.target.dataset.id); }
-    
     async function drop(e) {
       e.preventDefault();
-      const id = e.dataTransfer.getData("text");
-      const columnBody = e.target.closest('.column-body');
+      const id = e.dataTransfer.getData("text"), columnBody = e.target.closest('.column-body');
       if (!columnBody) return;
-      const newCol = columnBody.dataset.column;
       const task = tasks.find(t => t.id === id);
-      if (task && task.column !== newCol) {
-        task.column = newCol;
-        renderBoard();
-        await saveToServer(task);
-      }
+      if (task) { task.column = columnBody.dataset.column; renderBoard(); await pushTruthToServer(task); }
     }
 
     async function createNewTask(col) {
-      const newTask = { id: Date.now().toString(), task_name: 'NEW_OBJECTIVE', column: col, description: '', assignedTo: '', tags: [] };
-      tasks.push(newTask);
-      renderBoard();
-      await saveToServer(newTask);
-      openEditModal(newTask.id);
+      const newTask = { id: Date.now().toString(), task_name: 'MANUAL_OBJECTIVE', column: col, description: '', assignedTo: '', tags: [] };
+      tasks.push(newTask); renderBoard(); await pushTruthToServer(newTask); openEditModal(newTask.id);
     }
 
-    async function saveToServer(specificTask = null) {
-      isSaving = true;
-      lastManualActionTime = Date.now();
+    async function pushTruthToServer(specificTask = null) {
+      manualLock = true;
       try {
         if (specificTask && !specificTask.isDeleted) {
-          // Direct Hard-Write to DB
           await supabase.from('tasks').upsert({
-            id: specificTask.id,
-            content: specificTask.task_name,
-            assigned_agent: specificTask.assignedTo,
-            status: specificTask.column,
-            description: specificTask.description,
-            tags: specificTask.tags
+            id: specificTask.id, content: specificTask.task_name, assigned_agent: specificTask.assignedTo,
+            status: specificTask.column, description: specificTask.description, tags: specificTask.tags
           });
         }
-        
-        const payload = tasks.filter(t => !t.isDeleted).map(t => ({ 
-          ...t, content: t.task_name, assigned_agent: t.assignedTo, status: t.column 
-        }));
-        
-        await fetch('/api/tasks', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tasks: payload, columns: columnNames })
-        });
-        
-        setTimeout(() => { isSaving = false; }, 5000);
-      } catch (e) { 
-        console.error("Critical Sync Failure", e);
-        isSaving = false; 
-      }
+        const payload = tasks.filter(t => !t.isDeleted).map(t => ({ ...t, content: t.task_name, assigned_agent: t.assignedTo, status: t.column }));
+        await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tasks: payload, columns: columnNames }) });
+        setTimeout(() => { manualLock = false; }, 4000);
+      } catch (e) { manualLock = false; }
     }
 
     function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-    
     function openEditModal(id) {
-      const t = tasks.find(task => task.id === id);
-      if (!t) return;
-      document.getElementById('editTaskId').value = t.id;
-      document.getElementById('editTitle').value = t.task_name;
-      document.getElementById('editDescription').value = t.description || '';
-      document.getElementById('editAssignedTo').value = t.assignedTo || '';
-      document.getElementById('editTags').value = (t.tags || []).join(', ');
-      document.getElementById('editModal').classList.replace('hidden', 'flex');
+      const t = tasks.find(task => task.id === id); if (!t) return;
+      document.getElementById('editTaskId').value = t.id; document.getElementById('editTitle').value = t.task_name;
+      document.getElementById('editDescription').value = t.description || ''; document.getElementById('editAssignedTo').value = t.assignedTo || '';
+      document.getElementById('editTags').value = (t.tags || []).join(', '); document.getElementById('editModal').classList.replace('hidden', 'flex');
     }
-
     function closeEditModal() { document.getElementById('editModal').classList.replace('flex', 'hidden'); }
-
     async function saveTaskEdit() {
-      const id = document.getElementById('editTaskId').value;
-      const t = tasks.find(task => task.id === id);
+      const id = document.getElementById('editTaskId').value, t = tasks.find(task => task.id === id);
       if (t) {
-        t.task_name = document.getElementById('editTitle').value.trim();
-        t.description = document.getElementById('editDescription').value.trim();
-        t.assignedTo = document.getElementById('editAssignedTo').value;
-        t.tags = document.getElementById('editTags').value.split(',').map(tag => tag.trim()).filter(tag => tag);
-        renderBoard();
-        await saveToServer(t);
+        t.task_name = document.getElementById('editTitle').value.trim(); t.description = document.getElementById('editDescription').value.trim();
+        t.assignedTo = document.getElementById('editAssignedTo').value; t.tags = document.getElementById('editTags').value.split(',').map(tag => tag.trim()).filter(tag => tag);
+        renderBoard(); await pushTruthToServer(t);
       }
       closeEditModal();
     }
-
     async function deleteTask() {
-      const id = document.getElementById('editTaskId').value;
-      if (confirm("STRICT_TERMINATE: Permanently delete this objective?")) {
-        const t = tasks.find(task => task.id === id);
-        if (t) {
-          t.isDeleted = true;
-          await supabase.from('tasks').delete().eq('id', id);
-        }
-        tasks = tasks.filter(t => t.id !== id);
-        renderBoard();
-        await saveToServer();
-        closeEditModal();
+      const id = document.getElementById('editTaskId').value, t = tasks.find(task => task.id === id);
+      if (confirm("STRICT_TERMINATE?")) {
+        if (t) { t.isDeleted = true; await supabase.from('tasks').delete().eq('id', id); }
+        tasks = tasks.filter(t => t.id !== id); renderBoard(); await pushTruthToServer(); closeEditModal();
       }
     }
-
     window.onload = init;
   </script>
 </body>
