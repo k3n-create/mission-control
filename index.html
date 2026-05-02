@@ -4,8 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mission Control</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 1. Supabase SDK moved to the top of the head for early loading -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     body {
@@ -139,7 +140,6 @@
               <option value="JARVIS">JARVIS</option>
               <option value="JADE">JADE</option>
               <option value="K3n">K3n</option>
-              <option value="Raccoon">Raccoon</option>
             </select>
           </div>
           <div>
@@ -175,24 +175,29 @@
       
       const supabaseUrl = 'https://ljoiifswtizxhtwtilkf.supabase.co';
       const supabaseKey = 'sb_publishable_wICRlh3baVhWG9Lqw4u1Zg_ADbfIMtm';
-      const supabase = window.Supabase.createClient(supabaseUrl, supabaseKey);
+      
+      // Safety check for library loading
+      if (!window.supabase || !window.supabase.createClient) {
+          console.error("Supabase library not yet loaded.");
+          return;
+      }
+      
+      const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
       
       supabase
         .channel('schema-db-changes')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
           console.log('REALTIME_EVENT_DETECTED:', payload);
-          
           const { eventType, new: newRecord, old: oldRecord } = payload;
           
           if (eventType === 'INSERT') {
             const col = newRecord.status?.toLowerCase() || 'todo';
-            if (!tasks.find(t => t.id === newRecord.id)) {
+            if (!tasks.find(t => t.id === newRecord.id.toString())) {
               tasks.push({ 
                 id: newRecord.id.toString(), 
                 task_name: newRecord.content, 
                 tags: newRecord.tags || [], 
                 column: col, 
-                priority: newRecord.priority,
                 assignedTo: newRecord.assigned_agent || ''
               });
             }
@@ -201,7 +206,6 @@
             if (idx !== -1) {
               tasks[idx].task_name = newRecord.content;
               tasks[idx].column = newRecord.status?.toLowerCase() || 'todo';
-              tasks[idx].priority = newRecord.priority;
               tasks[idx].tags = newRecord.tags || [];
               tasks[idx].assignedTo = newRecord.assigned_agent || '';
             }
@@ -216,7 +220,6 @@
     }
 
     async function init() {
-      localStorage.clear();
       const savedColumns = localStorage.getItem(STORAGE_COLUMNS_KEY);
       columnNames = savedColumns ? JSON.parse(savedColumns) : [...DEFAULT_COLUMNS];
       
@@ -235,8 +238,6 @@
             column: colName.toLowerCase()
           }))
         );
-
-        console.log("System Live: Syncing with Supabase");
         renderBoard();
       } catch (error) {
         console.error("Critical: Sync Error", error);
@@ -353,9 +354,11 @@
       closeEditModal();
     }
 
-    // Execute
-    initRealtime();
-    init();
+    // FINAL GUARD: Only start once everything is ready
+    window.onload = () => {
+      initRealtime();
+      init();
+    };
   </script>
 </body>
 </html>
