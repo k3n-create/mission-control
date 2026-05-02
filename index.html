@@ -81,7 +81,7 @@
     const displayNames = { 'todo': 'INBOX', 'assigned': 'ASSIGNED', 'in_progress': 'IN PROGRESS', 'review': 'REVIEW', 'done': 'DONE' };
     let tasks = [];
     let columnNames = [...DEFAULT_COLUMNS];
-    let isSaving = false; // Lock to prevent snap-back
+    let isSaving = false;
 
     function initRealtime() {
       const supabaseUrl = 'https://ljoiifswtizxhtwtilkf.supabase.co';
@@ -89,6 +89,7 @@
       if (!window.supabase) return;
       const client = window.supabase.createClient(supabaseUrl, supabaseKey);
       client.channel('tasks-channel').on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
+          // BLOCK RENDER if we are in the middle of a manual save
           if (!isSaving) fetchTasksSilently(); 
       }).subscribe();
     }
@@ -98,11 +99,7 @@
         const res = await fetch('/api/tasks');
         const data = await res.json();
         tasks = Object.keys(data).flatMap(col => data[col].map(t => ({
-          ...t, 
-          id: t.id.toString(), 
-          column: col.toLowerCase(), 
-          assignedTo: t.assigned_agent || '', 
-          task_name: t.task_name || t.content || 'Untitled'
+          ...t, id: t.id.toString(), column: col.toLowerCase(), assignedTo: t.assigned_agent || '', task_name: t.task_name || t.content || 'Untitled'
         })));
         renderBoard();
       } catch (e) { console.error("Sync failed", e); }
@@ -167,13 +164,13 @@
     }
 
     async function saveToServer() {
-      isSaving = true;
+      isSaving = true; // LOCK REALTIME
       try {
         const payload = tasks.map(t => ({ 
           ...t, 
           content: t.task_name, 
           assigned_agent: t.assignedTo,
-          status: t.column // Ensure backend gets the right column key
+          status: t.column 
         }));
         
         await fetch('/api/tasks', {
@@ -182,8 +179,8 @@
           body: JSON.stringify({ tasks: payload, columns: columnNames })
         });
         
-        // Brief delay before unlocking to let DB settle
-        setTimeout(() => { isSaving = false; }, 1000);
+        // UNLOCK after 2 seconds to ensure Supabase has finished its internal indexing
+        setTimeout(() => { isSaving = false; }, 2000);
       } catch (e) { 
         console.error("Critical Save Failure", e);
         isSaving = false; 
