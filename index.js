@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from 'uuid';
 import express from 'express';
 import cors from 'cors';
 import { readFile } from 'fs/promises';
@@ -52,7 +53,7 @@ const TEST_CLIENT_ID = process.env.TEST_CLIENT_ID || '5f80e462-ddfb-45fe-874d-7b
         tasksByColumn[dashboardStatus] = [];
       }
       tasksByColumn[dashboardStatus].push({
-        id: task.id,
+        id: task.id || uuidv4(),
         task_name: task.content,
         status: dashboardStatus,
         
@@ -73,6 +74,7 @@ app.post('/api/tasks', async (req, res) => {
   try {
     const TEST_CLIENT_ID = process.env.TEST_CLIENT_ID || '5f80e462-ddfb-45fe-874d-7b36463b26d6';
     const { tasks, columns } = req.body;
+    console.log("POST /api/tasks received:", JSON.stringify(req.body));
 
     if (!Array.isArray(tasks) || tasks.length === 0) {
       return res.status(400).json({ error: 'No tasks provided' });
