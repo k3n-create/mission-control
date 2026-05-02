@@ -183,6 +183,7 @@ initRealtime();
     supabase
       .channel('tasks')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
+        console.log('Postgres change received!', payload);
         console.log('Realtime Update Received:', payload);
         
         const { eventType, new: newRecord, old: oldRecord } = payload;
