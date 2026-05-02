@@ -4,11 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mission Control</title>
-  <script src="https://cdn.tailwindcss.com">// Initialize both (realtime first to start listening before data loads)
-initRealtime();
-init();
-</script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     body {
@@ -36,9 +33,6 @@ init();
       transform: translateY(-2px);
       box-shadow: 0 8px 24px rgba(0,0,0,0.5);
       border-color: rgba(6, 182, 212, 0.3);
-    }
-    .card.dragging {
-      opacity: 0.5;
     }
     .columns-container {
       display: flex;
@@ -109,6 +103,7 @@ init();
     <div id="board" class="columns-container h-full"></div>
   </main>
 
+  <!-- Settings Modal -->
   <div id="settingsModal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-50">
     <div class="glass rounded-xl p-8 w-[450px] max-w-full shadow-2xl">
       <h2 class="text-xl font-bold mb-2 text-white">Dashboard Settings</h2>
@@ -121,6 +116,7 @@ init();
     </div>
   </div>
 
+  <!-- Edit Task Modal -->
   <div id="editModal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-50">
     <div class="glass rounded-xl p-8 w-[520px] max-w-full shadow-2xl">
       <h2 class="text-xl font-bold mb-2 text-white">Task Protocol</h2>
@@ -141,8 +137,8 @@ init();
             <select id="editAssignedTo" class="w-full bg-black/40 border border-white/10 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:border-cyan-500 transition">
               <option value="">None</option>
               <option value="JARVIS">JARVIS</option>
+              <option value="JADE">JADE</option>
               <option value="K3n">K3n</option>
-              <option value="Rookie">Rookie</option>
               <option value="Raccoon">Raccoon</option>
             </select>
           </div>
@@ -170,102 +166,83 @@ init();
 
     let tasks = [];
     let columnNames = [];
-
     let realtimeSubscribed = false;
-  function initRealtime() {
-    console.log('DEBUG: Attempting Supabase connection...');
-    if (realtimeSubscribed) return; // Prevent multiple subscriptions
-    realtimeSubscribed = true;
-    const supabaseUrl = 'https://ljoiifswtizxhtwtilkf.supabase.co';
-    const supabaseKey = 'sb_publishable_wICRlh3baVhWG9Lqw4u1Zg_ADbfIMtm';
-    const supabase = window.Supabase.createClient(supabaseUrl, supabaseKey);
-    
-    // Subscribe to all changes on tasks table
-    supabase
-      .channel('tasks')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
-        console.log('Postgres change received!', payload);
-        console.log('Realtime Update Received:', payload);
-        
-        const { eventType, new: newRecord, old: oldRecord } = payload;
-        
-        if (eventType === 'INSERT') {
-          // Add new task to appropriate column
-          const col = newRecord.status?.toLowerCase() || 'todo';
-          if (!tasks.find(t => t.id === newRecord.id)) {
-            tasks.push({ id: newRecord.id, task_name: newRecord.content,
-          tags: newRecord.tags || [], column: col, priority: newRecord.priority });
-          }
-        } else if (eventType === 'UPDATE') {
-          // Update existing task
-          const idx = tasks.findIndex(t => t.id === newRecord.id);
-          if (idx !== -1) {
-            tasks[idx].title = newRecord.content;
-            tasks[idx].column = newRecord.status?.toLowerCase() || 'todo';
-            tasks[idx].priority = newRecord.priority;
-          }
-        } else if (eventType === 'DELETE') {
-          // Remove deleted task
-          tasks = tasks.filter(t => t.id !== oldRecord.id);
-        }
-        
-        renderBoard();
-      })
-      .subscribe();
-    console.log('Subscribed to Supabase realtime');
-  }
 
-  async function init() {
-    
+    function initRealtime() {
+      console.log('DEBUG: Attempting Supabase connection...');
+      if (realtimeSubscribed) return;
+      realtimeSubscribed = true;
+      
+      const supabaseUrl = 'https://ljoiifswtizxhtwtilkf.supabase.co';
+      const supabaseKey = 'sb_publishable_wICRlh3baVhWG9Lqw4u1Zg_ADbfIMtm';
+      const supabase = window.Supabase.createClient(supabaseUrl, supabaseKey);
+      
+      supabase
+        .channel('schema-db-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
+          console.log('REALTIME_EVENT_DETECTED:', payload);
+          
+          const { eventType, new: newRecord, old: oldRecord } = payload;
+          
+          if (eventType === 'INSERT') {
+            const col = newRecord.status?.toLowerCase() || 'todo';
+            if (!tasks.find(t => t.id === newRecord.id)) {
+              tasks.push({ 
+                id: newRecord.id.toString(), 
+                task_name: newRecord.content, 
+                tags: newRecord.tags || [], 
+                column: col, 
+                priority: newRecord.priority,
+                assignedTo: newRecord.assigned_agent || ''
+              });
+            }
+          } else if (eventType === 'UPDATE') {
+            const idx = tasks.findIndex(t => t.id === newRecord.id.toString());
+            if (idx !== -1) {
+              tasks[idx].task_name = newRecord.content;
+              tasks[idx].column = newRecord.status?.toLowerCase() || 'todo';
+              tasks[idx].priority = newRecord.priority;
+              tasks[idx].tags = newRecord.tags || [];
+              tasks[idx].assignedTo = newRecord.assigned_agent || '';
+            }
+          } else if (eventType === 'DELETE') {
+            tasks = tasks.filter(t => t.id !== oldRecord.id.toString());
+          }
+          renderBoard();
+        })
+        .subscribe((status) => {
+          console.log('REALTIME_STATUS:', status);
+        });
+    }
 
-        localStorage.clear();
-      // Load columns from LocalStorage as usual
+    async function init() {
+      localStorage.clear();
       const savedColumns = localStorage.getItem(STORAGE_COLUMNS_KEY);
       columnNames = savedColumns ? JSON.parse(savedColumns) : [...DEFAULT_COLUMNS];
-      if (!savedColumns) saveColumns();
-
+      
       try {
-        // FETCH from Redis-backed API
         const response = await fetch('/api/tasks');
         const data = await response.json();
-
-        // Mapping: Convert nested JSON (Columns as keys) into a flat array for the UI
+        
         tasks = Object.keys(data).flatMap(colName => 
           data[colName].map(task => ({
             ...task,
             id: task.id.toString(),
-            title: task.task_name, // Map task_name to title
+            task_name: task.task_name,
             description: task.description || '',
-            assignedTo: task.assigned_agent || '', // Map assigned_agent to assignedTo
+            assignedTo: task.assigned_agent || '',
             tags: task.tags || [],
-            column: colName // The key name (e.g. "INBOX") becomes the column property
+            column: colName.toLowerCase()
           }))
         );
 
         console.log("System Live: Syncing with Supabase");
         renderBoard();
       } catch (error) {
-        console.error("Critical: Could not sync with tasks.json. Check file permissions.", error);
-        // Fallback to empty board if fetch fails
+        console.error("Critical: Sync Error", error);
         renderBoard();
       }
     }
-
-    function saveTasks() { 
-      localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(tasks)); 
-      
-      // Also save to server
-      fetch('/api/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tasks, columns: columnNames })
-      }).then(res => res.json()).then(data => {
-        console.log('Tasks saved to server:', data);
-      }).catch(err => {
-        console.error('Failed to save to server:', err);
-      });
-    }
-    function saveColumns() { localStorage.setItem(STORAGE_COLUMNS_KEY, JSON.stringify(columnNames)); }
 
     function renderBoard() {
       const board = document.getElementById('board');
@@ -274,11 +251,10 @@ init();
         const colDiv = document.createElement('div');
         colDiv.className = 'column glass rounded-lg p-4 flex flex-col';
         colDiv.innerHTML = `
-<div class="flex justify-between items-center mb-5">
+          <div class="flex justify-between items-center mb-5">
             <h3 class="font-bold text-white text-xs uppercase tracking-[0.2em] opacity-80">${displayNames[col] || col}</h3>
             <span class="text-[10px] font-mono text-gray-500">${tasks.filter(t => t.column === col).length}</span>
             <button onclick="createNewTask('${col}')" class="text-gray-400 hover:text-white text-lg font-bold">+</button>
-          </div>
           </div>
           <div class="column-body" data-column="${col}" ondragover="allowDrop(event)" ondrop="drop(event)">
             ${tasks.filter(t => t.column === col).map(t => renderTask(t)).join('')}
@@ -293,7 +269,7 @@ init();
       const tagsHtml = (task.tags || []).map(tag => `<span class="tag-pill">${tag}</span>`).join('');
       const badgeHtml = task.assignedTo ? `<span class="agent-badge">${task.assignedTo}</span>` : '';
       return `
-        <div class="card p-4 cursor-grab active:cursor-grabbing" draggable="true" data-id="${task.id}" onclick="openEditModal('${task.id}')">
+        <div class="card p-4 cursor-grab active:cursor-grabbing mb-3" draggable="true" data-id="${task.id}" onclick="openEditModal('${task.id}')">
           ${badgeHtml}
           <div class="font-semibold text-sm text-gray-100 mb-2 leading-tight">${escapeHtml(task.task_name)}</div>
           <div class="flex flex-wrap gap-1 mb-3">${tagsHtml}</div>
@@ -334,46 +310,12 @@ init();
       }
     }
 
-    function openSettingsModal() {
-      const container = document.getElementById('columnSettings');
-      container.innerHTML = columnNames.map((name, idx) => `
-        <div>
-          <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 block">Slot ${idx + 1}</label>
-          <input type="text" value="${escapeHtml(name)}" data-idx="${idx}" class="w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-sm focus:outline-none focus:border-cyan-500">
-        </div>
-      `).join('');
-      document.getElementById('settingsModal').classList.replace('hidden', 'flex');
-    }
-
-    function closeSettingsModal() { document.getElementById('settingsModal').classList.replace('flex', 'hidden'); }
-    
-    function saveSettings() {
-      const inputs = document.querySelectorAll('#columnSettings input');
-      const oldNames = [...columnNames];
-      columnNames = Array.from(inputs).map(input => input.value.trim() || 'Uninitialized');
-      tasks.forEach(task => {
-        const oldIdx = oldNames.indexOf(task.column);
-        if (oldIdx !== -1) task.column = columnNames[oldIdx];
-      });
-      saveColumns();
-      saveTasks();
-      renderBoard();
-      closeSettingsModal();
-    }
-
-    function createNewTask(columnName) {
-      const newTask = {
-        id: String(Date.now()),
-        title: 'New Task',
-        description: '',
-        assignedTo: '',
-        tags: [],
-        column: columnName
-      };
-      tasks.push(newTask);
-      saveTasks();
-      renderBoard();
-      setTimeout(() => openEditModal(newTask.id), 50);
+    function saveTasks() {
+      fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tasks, columns: columnNames })
+      }).catch(err => console.error('Save failed', err));
     }
 
     function openEditModal(taskId) {
@@ -411,34 +353,9 @@ init();
       closeEditModal();
     }
 
+    // Execute
+    initRealtime();
+    init();
   </script>
-  <!-- Edit Task Modal -->
-  <div id="editModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50">
-    <div class="bg-gray-800 rounded-lg p-4 w-96 border border-gray-600">
-      <h3 class="text-white text-sm font-semibold mb-3">Edit Task</h3>
-      <input type="hidden" id="editTaskId">
-      <div class="space-y-3">
-        <input type="text" id="editTitle" placeholder="Task title" class="w-full bg-gray-700 text-white rounded px-3 py-2 text-sm focus:outline-none focus:border-cyan-500">
-        <textarea id="editDescription" placeholder="Description" rows="2" class="w-full bg-gray-700 text-white rounded px-3 py-2 text-sm focus:outline-none focus:border-cyan-500"></textarea>
-        <select id="editAssignedTo" class="w-full bg-gray-700 text-white rounded px-3 py-2 text-sm focus:outline-none focus:border-cyan-500">
-          <option value="">Unassigned</option>
-          <option value="JARVIS">JARVIS</option>
-          <option value="JADE">JADE</option>
-          <option value="BLAZE">BLAZE</option>
-          <option value="NOVA">NOVA</option>
-          <option value="SAGE">SAGE</option>
-          <option value="AXEL">AXEL</option>
-        </select>
-        <input type="text" id="editTags" placeholder="Tags (comma separated)" class="w-full bg-gray-700 text-white rounded px-3 py-2 text-sm focus:outline-none focus:border-cyan-500">
-      </div>
-      <div class="flex justify-between mt-4">
-        <button onclick="deleteTask()" class="px-3 py-1.5 bg-red-700 hover:bg-red-600 text-white rounded text-xs">Delete</button>
-        <div class="flex gap-2">
-          <button onclick="closeEditModal()" class="px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white rounded text-xs">Cancel</button>
-          <button onclick="saveTaskEdit()" class="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-xs">Save</button>
-        </div>
-      </div>
-    </div>
-  </div>
 </body>
 </html>
