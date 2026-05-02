@@ -39,12 +39,12 @@ app.get('/api/tasks', async (req, res) => {
 
     const tasksByColumn = {};
     data.forEach(task => {
-      if (!tasksByColumn[task.column]) {
-        tasksByColumn[task.column] = [];
+      if (!tasksByColumn[task.status]) {
+        tasksByColumn[task.status] = [];
       }
-      tasksByColumn[task.column].push({
+      tasksByColumn[task.status].push({
         id: task.id,
-        task_name: task.title,
+        task_name: task.content,
         assigned_agent: task.assigned_to,
         status: task.status,
         priority: task.priority,
@@ -72,8 +72,8 @@ app.post('/api/tasks', async (req, res) => {
     const tasksToUpsert = tasks.map(task => ({
       client_id: TEST_CLIENT_ID,
       id: task.id,
-      title: task.title,
-      column: task.column,
+      content: task.title,
+      status: task.column,
       assigned_to: task.assignedTo || null,
       status: task.status || 'todo',
       priority: task.priority || 'medium',
