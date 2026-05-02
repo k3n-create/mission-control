@@ -8,13 +8,14 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    body { font-family: 'Inter', sans-serif; background-color: #0a0a0b; background-image: url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1920&q=80'); background-size: cover; background-position: center; min-height: 100vh; }
-    .glass { background: rgba(15, 15, 17, 0.85); backdrop-filter: blur(24px); border: 1px solid rgba(255, 255, 255, 0.08); }
-    .card { background: rgba(30, 30, 35, 0.9); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 0.5rem; transition: all 0.2s; cursor: pointer; }
-    .card:hover { border-color: rgba(6, 182, 212, 0.3); }
+    /* Removed the Unsplash image to bypass CORB blocking */
+    body { font-family: 'Inter', sans-serif; background-color: #0a0a0b; min-height: 100vh; }
+    .glass { background: rgba(15, 15, 17, 0.95); border: 1px solid rgba(255, 255, 255, 0.08); }
+    .card { background: rgba(30, 30, 35, 1); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 0.5rem; transition: all 0.2s; cursor: pointer; }
+    .card:hover { border-color: rgba(6, 182, 212, 0.5); }
     .columns-container { display: flex; gap: 1.25rem; overflow-x: auto; height: 100%; padding-bottom: 20px; }
     .column { flex: 1; min-width: 280px; display: flex; flex-direction: column; }
-    .tag-pill { background: rgba(255, 255, 255, 0.05); color: #94a3b8; font-size: 0.65rem; padding: 0.15rem 0.4rem; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.1); }
+    .tag-pill { background: rgba(255, 255, 255, 0.1); color: #94a3b8; font-size: 0.65rem; padding: 0.15rem 0.4rem; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.1); }
     .agent-badge { background: rgba(6, 182, 212, 0.15); color: #22d3ee; border: 1px solid rgba(6, 182, 212, 0.3); font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 0.25rem; text-transform: uppercase; }
     .modal-backdrop { background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(8px); }
   </style>
@@ -39,11 +40,11 @@
       <h2 class="text-xl font-bold text-white mb-2">Task Protocol</h2>
       <input type="hidden" id="editTaskId">
       <div class="space-y-5">
-        <input type="text" id="editTitle" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm focus:border-cyan-500 outline-none">
+        <input type="text" id="editTitle" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm focus:border-cyan-500 outline-none" placeholder="Objective Title">
         <textarea id="editDescription" rows="4" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm focus:border-cyan-500 outline-none" placeholder="Details"></textarea>
         <div class="grid grid-cols-2 gap-4">
           <select id="editAssignedTo" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm outline-none">
-            <option value="">None</option><option value="JARVIS">JARVIS</option><option value="JADE">JADE</option>
+            <option value="">Assign Asset</option><option value="JARVIS">JARVIS</option><option value="JADE">JADE</option>
           </select>
           <input type="text" id="editTags" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm outline-none" placeholder="tag1, tag2">
         </div>
@@ -63,20 +64,21 @@
     const displayNames = { 'todo': 'INBOX', 'assigned': 'ASSIGNED', 'in_progress': 'IN PROGRESS', 'review': 'REVIEW', 'done': 'DONE' };
     const supabaseUrl = 'https://ljoiifswtizxhtwtilkf.supabase.co';
     const supabaseKey = 'sb_publishable_wICRlh3baVhWG9Lqw4u1Zg_ADbfIMtm';
-    
+
     let supabase, tasks = [], manualLock = false;
 
     function renderBoard() {
       const board = document.getElementById('board');
+      if (!board) return;
       board.innerHTML = DEFAULT_COLUMNS.map(col => `
         <div class="column glass rounded-lg p-4">
           <div class="flex justify-between items-center mb-5 border-b border-white/5 pb-3">
             <h3 class="text-[10px] font-bold tracking-[0.3em] text-cyan-500 uppercase">${displayNames[col]}</h3>
             <button onclick="createNewTask('${col}')" class="text-gray-400 hover:text-white font-bold text-lg">+</button>
           </div>
-          <div class="column-body space-y-3 flex-1" id="col-${col}">
+          <div class="column-body space-y-3 flex-1" id="col-${col}" ondragover="allowDrop(event)" ondrop="drop(event)">
             ${tasks.filter(t => t.column === col).map(t => `
-              <div class="card p-4 mb-3" onclick="openEditModal('${t.id}')">
+              <div class="card p-4 mb-3" draggable="true" ondragstart="drag(event)" data-id="${t.id}" onclick="openEditModal('${t.id}')">
                 ${t.assignedTo ? `<span class="agent-badge mb-2 block w-fit">${t.assignedTo}</span>` : ''}
                 <div class="text-sm font-semibold text-gray-100">${escapeHtml(t.task_name)}</div>
                 <div class="flex flex-wrap gap-1 mt-2">${(t.tags || []).map(tag => `<span class="tag-pill">${tag}</span>`).join('')}</div>
@@ -88,29 +90,42 @@
     }
 
     async function init() {
-      renderBoard();
+      renderBoard(); // Draw immediately
       try {
-        if (!window.supabase) {
-            console.error("Supabase SDK Missing");
-            return;
-        }
+        if (!window.supabase) return;
         supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
-        
+
         const { data, error } = await supabase.from('tasks').select('*');
         if (error) throw error;
-        
+
         tasks = data.map(t => ({
-          id: t.id.toString(), column: (t.status || 'todo').toLowerCase(), 
+          id: t.id.toString(), column: (t.status || 'todo').toLowerCase(),
           assignedTo: t.assigned_agent || '', task_name: t.content || 'Untitled',
           description: t.description || '', tags: t.tags || []
         }));
-        
+
         renderBoard();
 
         supabase.channel('tasks-channel').on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
-            if (!manualLock) init(); 
+            if (!manualLock) init();
         }).subscribe();
       } catch (e) { console.error("CONNECTION FAILURE:", e); }
+    }
+
+    function allowDrop(e) { e.preventDefault(); }
+    function drag(e) { e.dataTransfer.setData("text", e.target.dataset.id); }
+    
+    async function drop(e) {
+      e.preventDefault();
+      const id = e.dataTransfer.getData("text");
+      const columnBody = e.target.closest('.column-body');
+      if (!columnBody) return;
+      const task = tasks.find(t => t.id === id);
+      if (task) {
+        task.column = columnBody.id.replace('col-', '');
+        renderBoard();
+        await pushTruth(task);
+      }
     }
 
     async function createNewTask(col) {
@@ -124,10 +139,13 @@
     async function pushTruth(task) {
       manualLock = true;
       try {
-        await supabase.from('tasks').upsert({
-            id: task.id, content: task.task_name, assigned_agent: task.assignedTo,
-            status: task.column, description: task.description, tags: task.tags
-        });
+        if (task && supabase) {
+          await supabase.from('tasks').upsert({
+              id: task.id, content: task.task_name, assigned_agent: task.assignedTo,
+              status: task.column, description: task.description, tags: task.tags
+          });
+        }
+        fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tasks: tasks.map(t => ({ ...t, content: t.task_name, assigned_agent: t.assignedTo, status: t.column })), columns: DEFAULT_COLUMNS }) }).catch(() => console.log("Railway API offline"));
         setTimeout(() => manualLock = false, 3000);
       } catch (e) { manualLock = false; }
     }
@@ -159,13 +177,14 @@
     async function deleteTask() {
       const id = document.getElementById('editTaskId').value;
       if (confirm("TERMINATE MISSION?")) {
-        await supabase.from('tasks').delete().eq('id', id);
+        if (supabase) await supabase.from('tasks').delete().eq('id', id);
         tasks = tasks.filter(t => t.id !== id);
         renderBoard(); closeEditModal();
       }
     }
 
-    window.onload = init;
+    /* CRITICAL FIX: Trigger exactly when DOM is ready, bypass image waits */
+    document.addEventListener('DOMContentLoaded', init);
   </script>
 </body>
 </html>
