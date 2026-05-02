@@ -23,7 +23,7 @@ app.get('/', async (req, res) => {
 // GET /api/tasks
 app.get('/api/tasks', async (req, res) => {
   try {
-    const TEST_CLIENT_ID = '5f80e462-ddfb-45fe-874d-7b36463b26d6';
+    const TEST_CLIENT_ID = process.env.TEST_CLIENT_ID || '5f80e462-ddfb-45fe-874d-7b36463b26d6';
     
     const { data, error } = await supabase
       .from('tasks')
@@ -62,7 +62,7 @@ app.get('/api/tasks', async (req, res) => {
 // POST /api/tasks
 app.post('/api/tasks', async (req, res) => {
   try {
-    const TEST_CLIENT_ID = '5f80e462-ddfb-45fe-874d-7b36463b26d6';
+    const TEST_CLIENT_ID = process.env.TEST_CLIENT_ID || '5f80e462-ddfb-45fe-874d-7b36463b26d6';
     const { tasks, columns } = req.body;
 
     if (!Array.isArray(tasks) || tasks.length === 0) {
