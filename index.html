@@ -85,20 +85,24 @@
     let tasks = [];
     let columnNames = [...DEFAULT_COLUMNS];
     let isSaving = false;
-    let lastManualUpdate = 0;
+    let lastManualActionTime = 0;
 
     function initRealtime() {
       if (!window.supabase) return;
       supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
       supabase.channel('tasks-channel').on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
-          if (!isSaving) fetchTasksSilently(); 
+          const timeSinceAction = Date.now() - lastManualActionTime;
+          // Ignore external changes for 5 seconds after any manual override
+          if (!isSaving && timeSinceAction > 5000) {
+            fetchTasksSilently(); 
+          }
       }).subscribe();
     }
 
     async function fetchTasksSilently() {
-      if (Date.now() - lastManualUpdate < 3000) return; 
       try {
         const res = await fetch('/api/tasks');
+        if (!res.ok) return;
         const data = await res.json();
         tasks = Object.keys(data).flatMap(col => data[col].map(t => ({
           ...t, id: t.id.toString(), column: col.toLowerCase(), assignedTo: t.assigned_agent || '', task_name: t.task_name || t.content || 'Untitled'
@@ -161,16 +165,16 @@
       const newTask = { id: Date.now().toString(), task_name: 'NEW_OBJECTIVE', column: col, description: '', assignedTo: '', tags: [] };
       tasks.push(newTask);
       renderBoard();
-      await saveToServer(newTask); // Write NEW task to Supabase immediately
+      await saveToServer(newTask);
       openEditModal(newTask.id);
     }
 
     async function saveToServer(specificTask = null) {
       isSaving = true;
-      lastManualUpdate = Date.now();
+      lastManualActionTime = Date.now();
       try {
-        // Direct Supabase Update
         if (specificTask && !specificTask.isDeleted) {
+          // Direct Hard-Write to DB
           await supabase.from('tasks').upsert({
             id: specificTask.id,
             content: specificTask.task_name,
@@ -181,7 +185,6 @@
           });
         }
         
-        // Broadcast Sync to Agents
         const payload = tasks.filter(t => !t.isDeleted).map(t => ({ 
           ...t, content: t.task_name, assigned_agent: t.assignedTo, status: t.column 
         }));
@@ -192,7 +195,7 @@
           body: JSON.stringify({ tasks: payload, columns: columnNames })
         });
         
-        setTimeout(() => { isSaving = false; }, 3000);
+        setTimeout(() => { isSaving = false; }, 5000);
       } catch (e) { 
         console.error("Critical Sync Failure", e);
         isSaving = false; 
@@ -223,7 +226,7 @@
         t.assignedTo = document.getElementById('editAssignedTo').value;
         t.tags = document.getElementById('editTags').value.split(',').map(tag => tag.trim()).filter(tag => tag);
         renderBoard();
-        await saveToServer(t); // Update edited task in Supabase immediately
+        await saveToServer(t);
       }
       closeEditModal();
     }
@@ -234,7 +237,7 @@
         const t = tasks.find(task => task.id === id);
         if (t) {
           t.isDeleted = true;
-          await supabase.from('tasks').delete().eq('id', id); // Wipe from DB immediately
+          await supabase.from('tasks').delete().eq('id', id);
         }
         tasks = tasks.filter(t => t.id !== id);
         renderBoard();
