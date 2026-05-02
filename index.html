@@ -8,9 +8,8 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    /* Removed the Unsplash image to bypass CORB blocking permanently */
     body { font-family: 'Inter', sans-serif; background-color: #0a0a0b; min-height: 100vh; margin: 0; }
-    .glass { background: rgba(15, 15, 17, 0.90); border: 1px solid rgba(255, 255, 255, 0.08); backdrop-filter: blur(16px); }
+    .glass { background: rgba(15, 15, 17, 0.90); border: 1px solid rgba(255, 255, 255, 0.08); }
     .card { background: rgba(30, 30, 35, 1); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 0.5rem; transition: transform 0.2s, border-color 0.2s; cursor: pointer; }
     .card:hover { transform: translateY(-2px); border-color: rgba(6, 182, 212, 0.5); }
     .card.dragging { opacity: 0.5; border: 1px dashed #22d3ee; }
@@ -27,7 +26,7 @@
       <div class="w-10 h-10 bg-cyan-600 rounded flex items-center justify-center font-bold text-black">J</div>
       <div>
         <h1 class="text-xl font-bold text-white">MISSION CONTROL</h1>
-        <p class="text-[10px] text-cyan-500 font-mono tracking-widest uppercase">System Direct-Link Online</p>
+        <p class="text-[10px] text-cyan-500 font-mono tracking-widest uppercase">System Direct-Link</p>
       </div>
     </div>
   </header>
@@ -68,6 +67,7 @@
 
     let supabase, tasks = [], manualLock = false;
 
+    // 1. Draw UI instantly
     function renderBoard() {
       const board = document.getElementById('board');
       if (!board) return;
@@ -90,30 +90,21 @@
       `).join('');
     }
 
-    async function init() {
-      renderBoard();
+    // 2. Safely connect DB
+    async function connectSupabase() {
+      if (!window.supabase) {
+          // If library hasn't downloaded yet, wait 200ms and try again
+          setTimeout(connectSupabase, 200);
+          return;
+      }
       try {
-        if (!window.supabase) {
-            console.error("Supabase SDK Missing");
-            return;
-        }
-        supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
-
-        const { data, error } = await supabase.from('tasks').select('*');
-        if (error) throw error;
-
-        tasks = data.map(t => ({
-          id: t.id.toString(), column: (t.status || 'todo').toLowerCase(),
-          assignedTo: t.assigned_agent || '', task_name: t.content || 'Untitled',
-          description: t.description || '', tags: t.tags || []
-        }));
-
-        renderBoard();
-
-        supabase.channel('tasks-channel').on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
-            if (!manualLock) fetchLatest();
-        }).subscribe();
-      } catch (e) { console.error("INIT ERROR", e); }
+          supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+          await fetchLatest();
+          
+          supabase.channel('tasks-channel').on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
+              if (!manualLock) fetchLatest();
+          }).subscribe();
+      } catch (e) { console.error("DB Error", e); }
     }
 
     async function fetchLatest() {
@@ -127,15 +118,11 @@
                 }));
                 renderBoard();
             }
-        } catch(e) {}
+        } catch(e) { console.error("Fetch Error", e); }
     }
 
     function allowDrop(e) { e.preventDefault(); }
-    
-    function drag(e) { 
-        e.dataTransfer.setData("text", e.target.dataset.id); 
-        e.target.classList.add('dragging');
-    }
+    function drag(e) { e.dataTransfer.setData("text", e.target.dataset.id); e.target.classList.add('dragging'); }
     
     async function drop(e) {
       e.preventDefault();
@@ -168,7 +155,7 @@
               status: task.column, description: task.description, tags: task.tags
           });
         }
-        fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tasks: tasks.map(t => ({ ...t, content: t.task_name, assigned_agent: t.assignedTo, status: t.column })), columns: DEFAULT_COLUMNS }) }).catch(e => console.log('Railway sync skipped'));
+        fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tasks: tasks.map(t => ({ ...t, content: t.task_name, assigned_agent: t.assignedTo, status: t.column })), columns: DEFAULT_COLUMNS }) }).catch(() => {});
         setTimeout(() => manualLock = false, 3000);
       } catch (e) { manualLock = false; }
     }
@@ -215,8 +202,9 @@
       }
     }
 
-    // FIRE IMMEDIATELY (Bypassing the 'DOMContentLoaded' trap)
-    init();
+    // FIRE IMMEDIATELY AND RELIABLY
+    renderBoard();
+    connectSupabase();
   </script>
 </body>
 </html>
