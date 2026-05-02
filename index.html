@@ -100,7 +100,13 @@
         const res = await fetch('/api/tasks');
         const data = await res.json();
         tasks = Object.keys(data).flatMap(col => data[col].map(t => ({
-          ...t, id: t.id.toString(), column: col.toLowerCase(), assignedTo: t.assigned_agent || '', task_name: t.task_name || 'Untitled', description: t.description || '', tags: t.tags || []
+          ...t, 
+          id: t.id.toString(), 
+          column: col.toLowerCase(), 
+          assignedTo: t.assigned_agent || '', 
+          task_name: t.task_name || t.content || 'Untitled',
+          description: t.description || '',
+          tags: t.tags || []
         })));
         renderBoard();
       } catch (e) { console.error("Init failed", e); }
@@ -165,11 +171,12 @@
           content: t.task_name,
           assigned_agent: t.assignedTo
         }));
-        await fetch('/api/tasks', {
+        const response = await fetch('/api/tasks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ tasks: payload, columns: columnNames })
         });
+        if (!response.ok) throw new Error('Network error');
       } catch (e) { console.error("Save failed", e); }
     }
 
@@ -197,8 +204,8 @@
         t.assignedTo = document.getElementById('editAssignedTo').value;
         const tagsStr = document.getElementById('editTags').value;
         t.tags = tagsStr ? tagsStr.split(',').map(tag => tag.trim()).filter(tag => tag) : [];
-        renderBoard();
-        await saveTasks();
+        await saveTasks(); // SAVE FIRST
+        init(); // THEN RE-FETCH TO SYNC
       }
       closeEditModal();
     }
@@ -207,13 +214,13 @@
       const id = document.getElementById('editTaskId').value;
       if (confirm("Terminate this task permanently?")) {
         tasks = tasks.filter(t => t.id !== id);
-        renderBoard();
-        await saveTasks();
+        await saveTasks(); // SAVE FIRST
+        init(); // THEN RE-FETCH TO SYNC
         closeEditModal();
       }
     }
 
-    window.onload = () => { try { initRealtime(); init(); } catch(e) { console.error(e); } };
+    window.onload = () => { initRealtime(); init(); };
   </script>
 </body>
 </html>
