@@ -188,6 +188,8 @@
         .channel('schema-db-changes')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
           console.log('REALTIME_EVENT_DETECTED:', payload);
+          console.log('UPDATING_UI_NOW');
+          init();
           const { eventType, new: newRecord, old: oldRecord } = payload;
           
           if (eventType === 'INSERT') {
