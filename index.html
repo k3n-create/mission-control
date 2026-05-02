@@ -54,7 +54,7 @@
             <option value="JADE">JADE</option>
             <option value="K3n">K3n</option>
           </select>
-          <input type="text" id="editTags" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm outline-none" placeholder="Tags (tag1, tag2)">
+          <input type="text" id="editTags" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm outline-none" placeholder="tag1, tag2">
         </div>
       </div>
       <div class="flex justify-between mt-10">
@@ -72,11 +72,26 @@
     const displayNames = { 'todo': 'INBOX', 'assigned': 'ASSIGNED', 'in_progress': 'IN PROGRESS', 'review': 'REVIEW', 'done': 'DONE' };
     const supabaseUrl = 'https://ljoiifswtizxhtwtilkf.supabase.co';
     const supabaseKey = 'sb_publishable_wICRlh3baVhWG9Lqw4u1Zg_ADbfIMtm';
-    let supabase, tasks = [], columnNames = [...DEFAULT_COLUMNS], manualLock = false;
+    
+    let supabase;
+    let tasks = [];
+    let columnNames = [...DEFAULT_COLUMNS];
+    let manualLock = false;
+
+    // SAFE INIT: Ensure Supabase exists before we touch it
+    function initSupabase() {
+      if (typeof window.supabase === 'undefined') {
+        console.log("Supabase not ready, retrying...");
+        setTimeout(initSupabase, 100);
+        return;
+      }
+      supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+      initRealtime();
+      fetchTasksSilently();
+    }
 
     function initRealtime() {
-      if (!window.supabase) return;
-      supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+      if (!supabase) return;
       supabase.channel('tasks-channel').on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
           if (!manualLock) fetchTasksSilently(); 
       }).subscribe();
@@ -87,16 +102,21 @@
         const res = await fetch('/api/tasks');
         const data = await res.json();
         tasks = Object.keys(data).flatMap(col => data[col].map(t => ({
-          ...t, id: t.id.toString(), column: col.toLowerCase(), assignedTo: t.assigned_agent || '', task_name: t.task_name || t.content || 'Untitled', description: t.description || '', tags: t.tags || []
+          ...t, 
+          id: t.id.toString(), 
+          column: col.toLowerCase(), 
+          assignedTo: t.assigned_agent || '', 
+          task_name: t.task_name || t.content || 'Untitled',
+          description: t.description || '',
+          tags: t.tags || []
         })));
         renderBoard();
       } catch (e) { console.error("Sync failed", e); }
     }
 
-    async function init() { initRealtime(); await fetchTasksSilently(); }
-
     function renderBoard() {
       const board = document.getElementById('board');
+      if (!board) return;
       board.innerHTML = columnNames.map(col => `
         <div class="column glass rounded-lg p-4">
           <div class="flex justify-between items-center mb-5 border-b border-white/5 pb-3">
@@ -118,59 +138,93 @@
 
     function allowDrop(e) { e.preventDefault(); }
     function drag(e) { e.dataTransfer.setData("text", e.target.dataset.id); }
+    
     async function drop(e) {
       e.preventDefault();
       const id = e.dataTransfer.getData("text"), columnBody = e.target.closest('.column-body');
       if (!columnBody) return;
       const task = tasks.find(t => t.id === id);
-      if (task) { task.column = columnBody.dataset.column; renderBoard(); await pushTruthToServer(task); }
+      if (task) { 
+        task.column = columnBody.dataset.column; 
+        renderBoard(); 
+        await pushTruthToServer(task); 
+      }
     }
 
     async function createNewTask(col) {
       const newTask = { id: Date.now().toString(), task_name: 'MANUAL_OBJECTIVE', column: col, description: '', assignedTo: '', tags: [] };
-      tasks.push(newTask); renderBoard(); await pushTruthToServer(newTask); openEditModal(newTask.id);
+      tasks.push(newTask);
+      renderBoard();
+      await pushTruthToServer(newTask);
+      openEditModal(newTask.id);
     }
 
     async function pushTruthToServer(specificTask = null) {
       manualLock = true;
       try {
-        if (specificTask && !specificTask.isDeleted) {
+        if (specificTask && !specificTask.isDeleted && supabase) {
           await supabase.from('tasks').upsert({
-            id: specificTask.id, content: specificTask.task_name, assigned_agent: specificTask.assignedTo,
-            status: specificTask.column, description: specificTask.description, tags: specificTask.tags
+            id: specificTask.id, 
+            content: specificTask.task_name, 
+            assigned_agent: specificTask.assignedTo,
+            status: specificTask.column, 
+            description: specificTask.description, 
+            tags: specificTask.tags
           });
         }
         const payload = tasks.filter(t => !t.isDeleted).map(t => ({ ...t, content: t.task_name, assigned_agent: t.assignedTo, status: t.column }));
-        await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tasks: payload, columns: columnNames }) });
+        await fetch('/api/tasks', { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' }, 
+          body: JSON.stringify({ tasks: payload, columns: columnNames }) 
+        });
         setTimeout(() => { manualLock = false; }, 4000);
       } catch (e) { manualLock = false; }
     }
 
     function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    
     function openEditModal(id) {
-      const t = tasks.find(task => task.id === id); if (!t) return;
-      document.getElementById('editTaskId').value = t.id; document.getElementById('editTitle').value = t.task_name;
-      document.getElementById('editDescription').value = t.description || ''; document.getElementById('editAssignedTo').value = t.assignedTo || '';
-      document.getElementById('editTags').value = (t.tags || []).join(', '); document.getElementById('editModal').classList.replace('hidden', 'flex');
+      const t = tasks.find(task => task.id === id);
+      if (!t) return;
+      document.getElementById('editTaskId').value = t.id;
+      document.getElementById('editTitle').value = t.task_name;
+      document.getElementById('editDescription').value = t.description || '';
+      document.getElementById('editAssignedTo').value = t.assignedTo || '';
+      document.getElementById('editTags').value = (t.tags || []).join(', ');
+      document.getElementById('editModal').classList.replace('hidden', 'flex');
     }
+
     function closeEditModal() { document.getElementById('editModal').classList.replace('flex', 'hidden'); }
+
     async function saveTaskEdit() {
       const id = document.getElementById('editTaskId').value, t = tasks.find(task => task.id === id);
       if (t) {
-        t.task_name = document.getElementById('editTitle').value.trim(); t.description = document.getElementById('editDescription').value.trim();
-        t.assignedTo = document.getElementById('editAssignedTo').value; t.tags = document.getElementById('editTags').value.split(',').map(tag => tag.trim()).filter(tag => tag);
-        renderBoard(); await pushTruthToServer(t);
+        t.task_name = document.getElementById('editTitle').value.trim();
+        t.description = document.getElementById('editDescription').value.trim();
+        t.assignedTo = document.getElementById('editAssignedTo').value;
+        t.tags = document.getElementById('editTags').value.split(',').map(tag => tag.trim()).filter(tag => tag);
+        renderBoard(); 
+        await pushTruthToServer(t);
       }
       closeEditModal();
     }
+
     async function deleteTask() {
       const id = document.getElementById('editTaskId').value, t = tasks.find(task => task.id === id);
       if (confirm("STRICT_TERMINATE?")) {
-        if (t) { t.isDeleted = true; await supabase.from('tasks').delete().eq('id', id); }
-        tasks = tasks.filter(t => t.id !== id); renderBoard(); await pushTruthToServer(); closeEditModal();
+        if (t && supabase) { 
+          t.isDeleted = true; 
+          await supabase.from('tasks').delete().eq('id', id); 
+        }
+        tasks = tasks.filter(t => t.id !== id);
+        renderBoard(); 
+        await pushTruthToServer(); 
+        closeEditModal();
       }
     }
-    window.onload = init;
+
+    window.onload = initSupabase;
   </script>
 </body>
 </html>
