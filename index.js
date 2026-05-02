@@ -54,8 +54,8 @@ const TEST_CLIENT_ID = process.env.TEST_CLIENT_ID || '5f80e462-ddfb-45fe-874d-7b
       tasksByColumn[dashboardStatus].push({
         id: task.id,
         task_name: task.content,
+        status: dashboardStatus,
         
-        status: mapStatus(task.status),
         priority: task.priority,
         
       });
