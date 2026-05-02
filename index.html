@@ -39,21 +39,21 @@
   <div id="editModal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-50">
     <div class="glass rounded-xl p-8 w-[520px] max-w-full shadow-2xl">
       <h2 class="text-xl font-bold text-white mb-2">Task Protocol</h2>
-      <p class="text-[10px] text-gray-500 mb-6 tracking-widest uppercase">System Update / Manual Override</p>
+      <p class="text-[10px] text-gray-500 mb-6 tracking-widest uppercase">Manual Override Active</p>
       <input type="hidden" id="editTaskId">
       <div class="space-y-5">
         <div>
           <label class="block text-[10px] text-cyan-500 font-bold mb-1.5 uppercase">Title</label>
-          <input type="text" id="editTitle" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm focus:border-cyan-500 outline-none">
+          <input type="text" id="editTitle" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm outline-none focus:border-cyan-500">
         </div>
         <div>
           <label class="block text-[10px] text-cyan-500 font-bold mb-1.5 uppercase">Description</label>
-          <textarea id="editDescription" rows="4" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm focus:border-cyan-500 outline-none"></textarea>
+          <textarea id="editDescription" rows="4" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm outline-none focus:border-cyan-500"></textarea>
         </div>
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="block text-[10px] text-cyan-500 font-bold mb-1.5 uppercase">Asset Assigned</label>
-            <select id="editAssignedTo" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm focus:border-cyan-500 outline-none">
+            <label class="block text-[10px] text-cyan-500 font-bold mb-1.5 uppercase">Assign Asset</label>
+            <select id="editAssignedTo" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm outline-none">
               <option value="">None</option>
               <option value="JARVIS">JARVIS</option>
               <option value="JADE">JADE</option>
@@ -61,16 +61,16 @@
             </select>
           </div>
           <div>
-            <label class="block text-[10px] text-cyan-500 font-bold mb-1.5 uppercase">Tags</label>
-            <input type="text" id="editTags" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm focus:border-cyan-500 outline-none" placeholder="tag1, tag2">
+            <label class="block text-[10px] text-cyan-500 font-bold mb-1.5 uppercase">Tags (comma-separated)</label>
+            <input type="text" id="editTags" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm outline-none" placeholder="tag1, tag2">
           </div>
         </div>
       </div>
       <div class="flex justify-between mt-10">
-        <button onclick="deleteTask()" class="text-red-500 text-[11px] font-bold tracking-widest hover:text-red-400">TERMINATE TASK</button>
+        <button onclick="deleteTask()" class="text-red-500 text-[11px] font-bold tracking-widest hover:text-red-400">TERMINATE</button>
         <div class="flex gap-4">
-          <button onclick="closeEditModal()" class="text-gray-400 text-sm hover:text-white">Exit</button>
-          <button onclick="saveTaskEdit()" class="bg-cyan-600 px-6 py-2 rounded text-sm font-bold shadow-lg shadow-cyan-900/20 hover:bg-cyan-500">UPDATE SYSTEM</button>
+          <button onclick="closeEditModal()" class="text-gray-400 text-sm">Exit</button>
+          <button onclick="saveTaskEdit()" class="bg-cyan-600 px-6 py-2 rounded text-sm font-bold shadow-lg hover:bg-cyan-500">UPDATE SYSTEM</button>
         </div>
       </div>
     </div>
@@ -81,35 +81,30 @@
     const displayNames = { 'todo': 'INBOX', 'assigned': 'ASSIGNED', 'in_progress': 'IN PROGRESS', 'review': 'REVIEW', 'done': 'DONE' };
     let tasks = [];
     let columnNames = [...DEFAULT_COLUMNS];
-    let realtimeSubscribed = false;
 
     function initRealtime() {
-      if (realtimeSubscribed) return;
-      realtimeSubscribed = true;
       const supabaseUrl = 'https://ljoiifswtizxhtwtilkf.supabase.co';
       const supabaseKey = 'sb_publishable_wICRlh3baVhWG9Lqw4u1Zg_ADbfIMtm';
       if (!window.supabase) return;
       const client = window.supabase.createClient(supabaseUrl, supabaseKey);
       client.channel('tasks-channel').on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
-          init(); 
+          // Silent background sync
+          fetchTasksSilently(); 
       }).subscribe();
     }
 
+    async function fetchTasksSilently() {
+      const res = await fetch('/api/tasks');
+      const data = await res.json();
+      tasks = Object.keys(data).flatMap(col => data[col].map(t => ({
+        ...t, id: t.id.toString(), column: col.toLowerCase(), assignedTo: t.assigned_agent || '', task_name: t.task_name || t.content || 'Untitled'
+      })));
+      renderBoard();
+    }
+
     async function init() {
-      try {
-        const res = await fetch('/api/tasks');
-        const data = await res.json();
-        tasks = Object.keys(data).flatMap(col => data[col].map(t => ({
-          ...t, 
-          id: t.id.toString(), 
-          column: col.toLowerCase(), 
-          assignedTo: t.assigned_agent || '', 
-          task_name: t.task_name || t.content || 'Untitled',
-          description: t.description || '',
-          tags: t.tags || []
-        })));
-        renderBoard();
-      } catch (e) { console.error("Init failed", e); }
+      await fetchTasksSilently();
+      initRealtime();
     }
 
     function renderBoard() {
@@ -120,7 +115,7 @@
             <div class="flex-1"></div>
             <div class="flex flex-col items-center">
               <h3 class="text-[10px] font-bold tracking-[0.3em] text-cyan-500 uppercase">${displayNames[col] || col}</h3>
-              <span class="text-[9px] font-mono text-gray-500 mt-1">TOTAL_UNITS: ${tasks.filter(t => t.column === col).length}</span>
+              <span class="text-[9px] font-mono text-gray-500 mt-1">UNITS: ${tasks.filter(t => t.column === col).length}</span>
             </div>
             <div class="flex-1 flex justify-end">
               <button onclick="createNewTask('${col}')" class="text-gray-400 hover:text-white font-bold text-lg">+</button>
@@ -141,7 +136,8 @@
     }
 
     function allowDrop(e) { e.preventDefault(); }
-    function drag(e) { e.dataTransfer.setData("text", e.target.dataset.id); e.target.classList.add('dragging'); }
+    function drag(e) { e.dataTransfer.setData("text", e.target.dataset.id); }
+    
     async function drop(e) {
       e.preventDefault();
       const id = e.dataTransfer.getData("text");
@@ -151,33 +147,26 @@
       const task = tasks.find(t => t.id === id);
       if (task && task.column !== newCol) {
         task.column = newCol;
-        renderBoard();
-        await saveTasks();
+        renderBoard(); // UI Updates Instantly
+        await saveToServer();
       }
     }
 
     async function createNewTask(col) {
-      const newTask = { id: Date.now().toString(), task_name: 'New Objective', column: col, description: '', assignedTo: '', tags: [] };
+      const newTask = { id: Date.now().toString(), task_name: 'NEW_OBJECTIVE', column: col, description: '', assignedTo: '', tags: [] };
       tasks.push(newTask);
       renderBoard();
-      await saveTasks();
+      await saveToServer();
       openEditModal(newTask.id);
     }
 
-    async function saveTasks() {
-      try {
-        const payload = tasks.map(t => ({
-          ...t,
-          content: t.task_name,
-          assigned_agent: t.assignedTo
-        }));
-        const response = await fetch('/api/tasks', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tasks: payload, columns: columnNames })
-        });
-        if (!response.ok) throw new Error('Network error');
-      } catch (e) { console.error("Save failed", e); }
+    async function saveToServer() {
+      const payload = tasks.map(t => ({ ...t, content: t.task_name, assigned_agent: t.assignedTo }));
+      await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tasks: payload, columns: columnNames })
+      });
     }
 
     function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
@@ -199,28 +188,27 @@
       const id = document.getElementById('editTaskId').value;
       const t = tasks.find(task => task.id === id);
       if (t) {
-        t.task_name = document.getElementById('editTitle').value.trim() || 'Untitled';
+        t.task_name = document.getElementById('editTitle').value.trim();
         t.description = document.getElementById('editDescription').value.trim();
         t.assignedTo = document.getElementById('editAssignedTo').value;
-        const tagsStr = document.getElementById('editTags').value;
-        t.tags = tagsStr ? tagsStr.split(',').map(tag => tag.trim()).filter(tag => tag) : [];
-        await saveTasks(); // SAVE FIRST
-        init(); // THEN RE-FETCH TO SYNC
+        t.tags = document.getElementById('editTags').value.split(',').map(tag => tag.trim()).filter(tag => tag);
+        renderBoard(); // Update UI First
+        await saveToServer(); // Save to Background
       }
       closeEditModal();
     }
 
     async function deleteTask() {
       const id = document.getElementById('editTaskId').value;
-      if (confirm("Terminate this task permanently?")) {
+      if (confirm("STRICT_TERMINATE: Permanently delete this objective?")) {
         tasks = tasks.filter(t => t.id !== id);
-        await saveTasks(); // SAVE FIRST
-        init(); // THEN RE-FETCH TO SYNC
+        renderBoard();
+        await saveToServer();
         closeEditModal();
       }
     }
 
-    window.onload = () => { initRealtime(); init(); };
+    window.onload = init;
   </script>
 </body>
 </html>
