@@ -82,6 +82,7 @@
     let tasks = [];
     let columnNames = [...DEFAULT_COLUMNS];
     let isSaving = false;
+    let lastManualUpdate = 0;
 
     function initRealtime() {
       const supabaseUrl = 'https://ljoiifswtizxhtwtilkf.supabase.co';
@@ -89,17 +90,23 @@
       if (!window.supabase) return;
       const client = window.supabase.createClient(supabaseUrl, supabaseKey);
       client.channel('tasks-channel').on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
-          // BLOCK RENDER if we are in the middle of a manual save
           if (!isSaving) fetchTasksSilently(); 
       }).subscribe();
     }
 
     async function fetchTasksSilently() {
+      // Ignore incoming DB state for 3 seconds after a manual override
+      if (Date.now() - lastManualUpdate < 3000) return; 
+
       try {
         const res = await fetch('/api/tasks');
         const data = await res.json();
         tasks = Object.keys(data).flatMap(col => data[col].map(t => ({
-          ...t, id: t.id.toString(), column: col.toLowerCase(), assignedTo: t.assigned_agent || '', task_name: t.task_name || t.content || 'Untitled'
+          ...t, 
+          id: t.id.toString(), 
+          column: col.toLowerCase(), 
+          assignedTo: t.assigned_agent || '', 
+          task_name: t.task_name || t.content || 'Untitled'
         })));
         renderBoard();
       } catch (e) { console.error("Sync failed", e); }
@@ -164,7 +171,8 @@
     }
 
     async function saveToServer() {
-      isSaving = true; // LOCK REALTIME
+      isSaving = true;
+      lastManualUpdate = Date.now();
       try {
         const payload = tasks.map(t => ({ 
           ...t, 
@@ -179,8 +187,7 @@
           body: JSON.stringify({ tasks: payload, columns: columnNames })
         });
         
-        // UNLOCK after 2 seconds to ensure Supabase has finished its internal indexing
-        setTimeout(() => { isSaving = false; }, 2000);
+        setTimeout(() => { isSaving = false; }, 3000);
       } catch (e) { 
         console.error("Critical Save Failure", e);
         isSaving = false; 
