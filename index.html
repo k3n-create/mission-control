@@ -161,7 +161,8 @@
   <script>
     const STORAGE_TASKS_KEY = 'missionControlTasks';
     const STORAGE_COLUMNS_KEY = 'missionControlColumns';
-    const DEFAULT_COLUMNS = ['INBOX', 'ASSIGNED', 'IN PROGRESS', 'REVIEW', 'DONE'];
+    const DEFAULT_COLUMNS = ['todo', 'assigned', 'in_progress', 'review', 'done'];
+    const displayNames = { 'todo': 'INBOX', 'assigned': 'ASSIGNED', 'in_progress': 'IN PROGRESS', 'review': 'REVIEW', 'done': 'DONE' };
 
     let tasks = [];
     let columnNames = [];
@@ -223,7 +224,7 @@
         colDiv.className = 'column glass rounded-lg p-4 flex flex-col';
         colDiv.innerHTML = `
 <div class="flex justify-between items-center mb-5">
-            <h3 class="font-bold text-white text-xs uppercase tracking-[0.2em] opacity-80">${col}</h3>
+            <h3 class="font-bold text-white text-xs uppercase tracking-[0.2em] opacity-80">${displayNames[col] || col}</h3>
             <span class="text-[10px] font-mono text-gray-500">${tasks.filter(t => t.column === col).length}</span>
             <button onclick="createNewTask('${col}')" class="text-gray-400 hover:text-white text-lg font-bold">+</button>
           </div>
