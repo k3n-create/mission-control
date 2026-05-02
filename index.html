@@ -193,7 +193,8 @@ init();
           // Add new task to appropriate column
           const col = newRecord.status?.toLowerCase() || 'todo';
           if (!tasks.find(t => t.id === newRecord.id)) {
-            tasks.push({ id: newRecord.id, title: newRecord.content, column: col, priority: newRecord.priority });
+            tasks.push({ id: newRecord.id, task_name: newRecord.content,
+          tags: newRecord.tags || [], column: col, priority: newRecord.priority });
           }
         } else if (eventType === 'UPDATE') {
           // Update existing task
@@ -410,7 +411,6 @@ init();
       closeEditModal();
     }
 
-    init();
   </script>
   <!-- Edit Task Modal -->
   <div id="editModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50">
