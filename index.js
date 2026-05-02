@@ -45,10 +45,10 @@ app.get('/api/tasks', async (req, res) => {
       tasksByColumn[task.status].push({
         id: task.id,
         task_name: task.content,
-        assigned_agent: task.assigned_to,
+        
         status: task.status,
         priority: task.priority,
-        tags: task.tags
+        
       });
     });
 
@@ -74,9 +74,9 @@ app.post('/api/tasks', async (req, res) => {
       id: task.id,
       content: task.title,
       status: task.column,
-      assigned_to: task.assignedTo || null,
+      
       priority: task.priority || 'medium',
-      tags: task.tags || [],
+      
       updated_at: new Date().toISOString()
     }));
 
