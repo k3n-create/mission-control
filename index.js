@@ -54,7 +54,7 @@ app.get('/api/tasks', async (req, res) => {
  
  const { data, error } = await supabase
  .from('tasks')
- .select('id,content,status,priority,agent_id,tags')
+ .select('id,content,status,priority,agent_id,tags,description')
  .eq('client_id', TEST_CLIENT_ID)
  .order('created_at', { ascending: true });
 
@@ -72,7 +72,9 @@ app.get('/api/tasks', async (req, res) => {
         task_name: task.content,
         status: dashboardStatus,
         priority: task.priority,
-        assigned_agent: task.agent_id || ''
+        assigned_agent: task.agent_id || '',
+        description: task.description || '',
+        tags: task.tags || []
       });
     });
   }
@@ -84,7 +86,7 @@ app.get('/api/tasks', async (req, res) => {
  }
 });
 
-// POST /api/tasks
+// POST /api/tasks - Partial updates only, preserves existing fields
 app.post('/api/tasks', async (req, res) => {
  try {
  const TEST_CLIENT_ID = process.env.TEST_CLIENT_ID || '5f80e462-ddfb-45fe-874d-7b36463b26d6';
@@ -94,25 +96,73 @@ app.post('/api/tasks', async (req, res) => {
  return res.status(400).json({ error: 'No tasks provided' });
  }
 
- const tasksToUpsert = tasks.map(task => ({
- client_id: TEST_CLIENT_ID,
- // Ensure ID is a valid UUID; otherwise generate one
- id: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(task.id) ? task.id : uuidv4(),
- content: task.task_name || task.title,
- status: reverseMapStatus(task.column || task.status),
- // Convert string priority to integer using global map
- priority: typeof task.priority === 'number' ? task.priority : (priorityMap[task.priority] || 3),
- updated_at: new Date().toISOString()
- }));
+ const results = [];
 
- const { data, error } = await supabase
- .from('tasks')
- .upsert(tasksToUpsert, { onConflict: 'id' })
- .select();
+ for (const task of tasks) {
+   // Validate UUID
+   const taskId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(task.id) ? task.id : null;
+   
+   if (!taskId) {
+     // New task - insert it
+     const newTask = {
+       client_id: TEST_CLIENT_ID,
+       id: uuidv4(),
+       content: task.task_name || task.title || 'Untitled',
+       status: reverseMapStatus(task.column || task.status),
+       priority: typeof task.priority === 'number' ? task.priority : (priorityMap[task.priority] || 3),
+       agent_id: task.assigned_agent || null,
+       tags: task.tags || [],
+       updated_at: new Date().toISOString()
+     };
+     
+     const { data, error } = await supabase.from('tasks').insert(newTask).select();
+     if (error) throw error;
+     results.push(data[0]);
+   } else {
+     // Existing task - PARTIAL UPDATE only changed fields
+     const updateFields = {};
+     
+     // Only update status if provided
+     if (task.column || task.status) {
+       updateFields.status = reverseMapStatus(task.column || task.status);
+     }
+     
+     // Only update content if provided and changed
+     if (task.task_name && task.task_name !== task.title) {
+       updateFields.content = task.task_name;
+     }
+     
+     // Only update priority if provided
+     if (task.priority) {
+       updateFields.priority = typeof task.priority === 'number' ? task.priority : (priorityMap[task.priority] || 3);
+     }
+     
+     // Only update agent_id if provided
+     if (task.assigned_agent !== undefined) {
+       updateFields.agent_id = task.assigned_agent || null;
+     }
+     
+     // Only update tags if provided
+     if (task.tags) {
+       updateFields.tags = task.tags;
+     }
+     
+     // Add updated_at
+     updateFields.updated_at = new Date().toISOString();
+     
+     // Do PARTIAL update - only changes specified fields
+     const { data, error } = await supabase
+       .from('tasks')
+       .update(updateFields)
+       .eq('id', taskId)
+       .select();
+     
+     if (error) throw error;
+     results.push(data[0]);
+   }
+ }
 
- if (error) throw error;
-
- res.status(200).json({ success: true, message: 'Tasks saved', count: data?.length || 0 });
+ res.status(200).json({ success: true, message: 'Tasks saved', count: results.length });
  } catch (error) {
  console.error('Error:', error);
  res.status(500).json({ error: error.message });
