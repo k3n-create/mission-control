@@ -46,7 +46,7 @@ app.get('/api/tasks', async (req, res) => {
         id: task.id,
         task_name: task.content,
         
-        status: task.status,
+        status: task.status.toLowerCase(),
         priority: task.priority,
         
       });
