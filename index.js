@@ -83,7 +83,7 @@ app.post('/api/tasks', async (req, res) => {
     const tasksToUpsert = tasks.map(task => ({
       // console.log("Task before mapping:", task),
       client_id: TEST_CLIENT_ID,
-      id: task.id,
+      id: (task.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(task.id)) ? task.id : uuidv4(),
       content: task.title,
       status: task.column,
       
