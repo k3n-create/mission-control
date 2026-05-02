@@ -98,3 +98,11 @@ app.post('/api/tasks', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+// Debug endpoint - remove in production
+app.get('/api/debug', (req, res) => {
+  res.json({
+    supabaseUrl: process.env.SUPABASE_URL ? 'SET' : 'MISSING',
+    supabaseKey: process.env.SUPABASE_KEY ? 'SET' : 'MISSING',
+    testClientId: process.env.TEST_CLIENT_ID ? 'SET' : 'MISSING'
+  });
+});
