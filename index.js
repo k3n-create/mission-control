@@ -58,7 +58,6 @@ const TEST_CLIENT_ID = process.env.TEST_CLIENT_ID || '5f80e462-ddfb-45fe-874d-7b
         task_name: task.content,
         status: dashboardStatus,
         
-        priority: task.priority,
         
       });
     });
@@ -88,7 +87,7 @@ app.post('/api/tasks', async (req, res) => {
       content: task.title,
       status: task.column,
       
-      priority: task.priority || 'medium',
+      priority: (typeof task.priority === 'number') ? task.priority : (priorityMap[task.priority] || 3),
       
       updated_at: new Date().toISOString()
     }));
