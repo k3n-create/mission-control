@@ -34,6 +34,7 @@ const mapStatus = (s) => statusMap[s?.toUpperCase()] || s?.toLowerCase() || 'tod
 
 const TEST_CLIENT_ID = process.env.TEST_CLIENT_ID || '5f80e462-ddfb-45fe-874d-7b36463b26d6';
     
+    console.log("Saving to Supabase:", JSON.stringify(tasksToUpsert));
     const { data, error } = await supabase
       .from('tasks')
       .select('*')
@@ -53,7 +54,7 @@ const TEST_CLIENT_ID = process.env.TEST_CLIENT_ID || '5f80e462-ddfb-45fe-874d-7b
         tasksByColumn[dashboardStatus] = [];
       }
       tasksByColumn[dashboardStatus].push({
-        id: task.id || uuidv4(),
+        id: (task.id && task.id.length > 20) ? task.id : uuidv4(),
         task_name: task.content,
         status: dashboardStatus,
         
