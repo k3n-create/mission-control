@@ -70,17 +70,15 @@
     let realtimeSubscribed = false;
 
     function initRealtime() {
-      console.log('DEBUG: Attempting Supabase connection...');
       if (realtimeSubscribed) return;
       realtimeSubscribed = true;
       const supabaseUrl = 'https://ljoiifswtizxhtwtilkf.supabase.co';
       const supabaseKey = 'sb_publishable_wICRlh3baVhWG9Lqw4u1Zg_ADbfIMtm';
-      if (!window.supabase) return console.error("Supabase SDK missing");
+      if (!window.supabase) return;
       const client = window.supabase.createClient(supabaseUrl, supabaseKey);
       client.channel('tasks-channel').on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
-          console.log('REALTIME_EVENT_DETECTED:', payload.eventType);
           init(); 
-      }).subscribe((status) => console.log('REALTIME_STATUS:', status));
+      }).subscribe();
     }
 
     async function init() {
@@ -101,6 +99,7 @@
 
     function renderBoard() {
       const board = document.getElementById('board');
+      if (!board) return;
       board.innerHTML = columnNames.map(col => `
         <div class="column glass rounded-lg p-4">
           <div class="flex justify-between items-center mb-5 border-b border-white/5 pb-3">
@@ -110,7 +109,7 @@
               <span class="text-[9px] font-mono text-gray-500 mt-1">TOTAL_UNITS: ${tasks.filter(t => t.column === col).length}</span>
             </div>
             <div class="flex-1 flex justify-end">
-              <button onclick="createNewTask('${col}')" class="text-gray-400 hover:text-white transition-colors font-bold text-lg">+</button>
+              <button onclick="createNewTask('${col}')" class="text-gray-400 hover:text-white font-bold text-lg">+</button>
             </div>
           </div>
           <div class="column-body space-y-3" data-column="${col}" ondragover="allowDrop(event)" ondrop="drop(event)">
@@ -128,7 +127,9 @@
 
     function allowDrop(e) { e.preventDefault(); }
     function drag(e) { e.dataTransfer.setData("text", e.target.dataset.id); e.target.classList.add('dragging'); }
-    function drop(e) {
+    
+    // FIXED: Function must be async to use await
+    async function drop(e) {
       e.preventDefault();
       const id = e.dataTransfer.getData("text");
       const columnBody = e.target.closest('.column-body');
@@ -137,23 +138,22 @@
       const task = tasks.find(t => t.id === id);
       if (task && task.column !== newCol) {
         task.column = newCol;
+        renderBoard(); // UI first for speed
         await saveTasks();
-        renderBoard();
       }
     }
 
     async function createNewTask(col) {
       const newTask = { 
-        id: crypto.randomUUID(), 
-        task_name: 'New Strategic Objective', 
+        id: Date.now().toString(), 
+        task_name: 'New Objective', 
         column: col, 
         assignedTo: '', 
-        tags: [],
-        priority: 3
+        tags: []
       };
       tasks.push(newTask);
-      await saveTasks();
       renderBoard();
+      await saveTasks();
       openEditModal(newTask.id);
     }
 
@@ -161,19 +161,16 @@
       try {
         const payload = tasks.map(t => ({
           id: t.id,
-          content: t.task_name,
-          status: t.column,
-          agent_id: t.assignedTo,
-          priority: t.priority || 3,
+          task_name: t.task_name,
+          column: t.column,
+          assignedTo: t.assignedTo,
           tags: t.tags || []
         }));
-        
-        const response = await fetch('/api/tasks', {
+        await fetch('/api/tasks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ tasks: payload, columns: columnNames })
         });
-        if (!response.ok) throw new Error('Network error: ' + response.status);
       } catch (e) { console.error("Save failed", e); }
     }
 
@@ -195,18 +192,18 @@
       t.task_name = document.getElementById('editTitle').value;
       t.assignedTo = document.getElementById('editAssignedTo').value;
       t.tags = document.getElementById('editTags').value.split(',').map(tag => tag.trim()).filter(tag => tag);
-      await saveTasks();
       renderBoard();
+      await saveTasks();
       closeEditModal();
     }
     async function deleteTask() {
       const id = document.getElementById('editTaskId').value;
       tasks = tasks.filter(t => t.id !== id);
-      await saveTasks();
       renderBoard();
+      await saveTasks();
       closeEditModal();
     }
-    window.onload = () => { try { initRealtime(); init(); } catch(e) { console.error(e); } };
+    window.onload = () => { initRealtime(); init(); };
   </script>
 </body>
 </html>
