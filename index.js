@@ -70,6 +70,9 @@ app.get('/api/tasks', async (req, res) => {
  tasksByColumn[dashboardStatus].push({
  id: task.id,
  task_name: task.content,
+            assigned_agent: task.assigned_agent,
+            description: task.description,
+            tags: task.tags,
  status: dashboardStatus,
  priority: task.priority
  });
