@@ -31,9 +31,7 @@
   </header>
 
   <main class="p-6 h-[calc(100vh-88px)]">
-    <div id="board" class="columns-container h-full">
-        <div class="column glass rounded-lg p-4 opacity-50"><h3 class="text-[10px] font-bold tracking-widest text-gray-500 uppercase">INITIALIZING...</h3></div>
-    </div>
+    <div id="board" class="columns-container h-full"></div>
   </main>
 
   <div id="editModal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-50">
@@ -92,10 +90,12 @@
     async function init() {
       renderBoard();
       try {
-        if (!window.supabase) throw new Error("SDK MISSING");
+        if (!window.supabase) {
+            console.error("Supabase SDK Missing");
+            return;
+        }
         supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
         
-        // DIRECT FETCH FROM SUPABASE (Bypass Railway API)
         const { data, error } = await supabase.from('tasks').select('*');
         if (error) throw error;
         
@@ -107,7 +107,7 @@
         
         renderBoard();
 
-        supabase.channel('tasks-channel').on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
+        supabase.channel('tasks-channel').on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
             if (!manualLock) init(); 
         }).subscribe();
       } catch (e) { console.error("CONNECTION FAILURE:", e); }
@@ -142,7 +142,7 @@
       document.getElementById('editTags').value = (t.tags || []).join(', ');
       document.getElementById('editModal').classList.replace('hidden', 'flex');
     }
-    function closeEditModal() { document.getElementById('editModal').classList.replace('flex', 'hidden'); }
+    function closeEditModal() { document.getElementById('editModal').classList.replace('hidden', 'flex'); }
 
     async function saveTaskEdit() {
       const id = document.getElementById('editTaskId').value, t = tasks.find(task => task.id === id);
