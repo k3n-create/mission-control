@@ -10,7 +10,7 @@
   <style>
     body { font-family: 'Inter', sans-serif; background-color: #0a0a0b; background-image: url('https://images.unsplash.com/photo-1464039397811-e7aec7d3a299?auto=format&fit=crop&w=1920&q=80'); background-size: cover; background-position: center; min-height: 100vh; }
     .glass { background: rgba(15, 15, 17, 0.85); backdrop-filter: blur(24px); border: 1px solid rgba(255, 255, 255, 0.08); }
-    .card { background: rgba(30, 30, 35, 0.9); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 0.5rem; transition: all 0.2s; }
+    .card { background: rgba(30, 30, 35, 0.9); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 0.5rem; transition: all 0.2s; cursor: pointer; }
     .card:hover { transform: translateY(-2px); border-color: rgba(6, 182, 212, 0.3); }
     .card.dragging { opacity: 0.5; border: 1px dashed #22d3ee; }
     .columns-container { display: flex; gap: 1.25rem; overflow-x: auto; height: 100%; }
@@ -81,6 +81,7 @@
     const displayNames = { 'todo': 'INBOX', 'assigned': 'ASSIGNED', 'in_progress': 'IN PROGRESS', 'review': 'REVIEW', 'done': 'DONE' };
     let tasks = [];
     let columnNames = [...DEFAULT_COLUMNS];
+    let isSaving = false; // Lock to prevent snap-back
 
     function initRealtime() {
       const supabaseUrl = 'https://ljoiifswtizxhtwtilkf.supabase.co';
@@ -88,18 +89,23 @@
       if (!window.supabase) return;
       const client = window.supabase.createClient(supabaseUrl, supabaseKey);
       client.channel('tasks-channel').on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
-          // Silent background sync
-          fetchTasksSilently(); 
+          if (!isSaving) fetchTasksSilently(); 
       }).subscribe();
     }
 
     async function fetchTasksSilently() {
-      const res = await fetch('/api/tasks');
-      const data = await res.json();
-      tasks = Object.keys(data).flatMap(col => data[col].map(t => ({
-        ...t, id: t.id.toString(), column: col.toLowerCase(), assignedTo: t.assigned_agent || '', task_name: t.task_name || t.content || 'Untitled'
-      })));
-      renderBoard();
+      try {
+        const res = await fetch('/api/tasks');
+        const data = await res.json();
+        tasks = Object.keys(data).flatMap(col => data[col].map(t => ({
+          ...t, 
+          id: t.id.toString(), 
+          column: col.toLowerCase(), 
+          assignedTo: t.assigned_agent || '', 
+          task_name: t.task_name || t.content || 'Untitled'
+        })));
+        renderBoard();
+      } catch (e) { console.error("Sync failed", e); }
     }
 
     async function init() {
@@ -123,7 +129,7 @@
           </div>
           <div class="column-body space-y-3" data-column="${col}" ondragover="allowDrop(event)" ondrop="drop(event)">
             ${tasks.filter(t => t.column === col).map(t => `
-              <div class="card p-4 cursor-grab mb-3" draggable="true" ondragstart="drag(event)" data-id="${t.id}" onclick="openEditModal('${t.id}')">
+              <div class="card p-4 mb-3" draggable="true" ondragstart="drag(event)" data-id="${t.id}" onclick="openEditModal('${t.id}')">
                 ${t.assignedTo ? `<span class="agent-badge mb-2 block w-fit">${t.assignedTo}</span>` : ''}
                 <div class="text-sm font-semibold text-gray-100">${escapeHtml(t.task_name)}</div>
                 <div class="flex flex-wrap gap-1 mt-2">${(t.tags || []).map(tag => `<span class="tag-pill">${tag}</span>`).join('')}</div>
@@ -147,7 +153,7 @@
       const task = tasks.find(t => t.id === id);
       if (task && task.column !== newCol) {
         task.column = newCol;
-        renderBoard(); // UI Updates Instantly
+        renderBoard();
         await saveToServer();
       }
     }
@@ -161,12 +167,27 @@
     }
 
     async function saveToServer() {
-      const payload = tasks.map(t => ({ ...t, content: t.task_name, assigned_agent: t.assignedTo }));
-      await fetch('/api/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tasks: payload, columns: columnNames })
-      });
+      isSaving = true;
+      try {
+        const payload = tasks.map(t => ({ 
+          ...t, 
+          content: t.task_name, 
+          assigned_agent: t.assignedTo,
+          status: t.column // Ensure backend gets the right column key
+        }));
+        
+        await fetch('/api/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tasks: payload, columns: columnNames })
+        });
+        
+        // Brief delay before unlocking to let DB settle
+        setTimeout(() => { isSaving = false; }, 1000);
+      } catch (e) { 
+        console.error("Critical Save Failure", e);
+        isSaving = false; 
+      }
     }
 
     function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
@@ -192,8 +213,8 @@
         t.description = document.getElementById('editDescription').value.trim();
         t.assignedTo = document.getElementById('editAssignedTo').value;
         t.tags = document.getElementById('editTags').value.split(',').map(tag => tag.trim()).filter(tag => tag);
-        renderBoard(); // Update UI First
-        await saveToServer(); // Save to Background
+        renderBoard();
+        await saveToServer();
       }
       closeEditModal();
     }
