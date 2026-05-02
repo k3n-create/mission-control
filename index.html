@@ -42,6 +42,7 @@
       <input type="hidden" id="editTaskId">
       <div class="space-y-4">
         <input type="text" id="editTitle" class="w-full bg-black/40 border border-white/10 rounded p-2.5 text-sm" placeholder="Title">
+        <textarea id="editDescription" rows="4" class="w-full bg-black/40 border border-white/10 rounded p-2.5 text-sm" placeholder="Description"></textarea>
         <div class="grid grid-cols-2 gap-4">
           <select id="editAssignedTo" class="bg-black/40 border border-white/10 rounded p-2.5 text-sm">
             <option value="">None</option>
@@ -77,8 +78,9 @@
       if (!window.supabase) return;
       const client = window.supabase.createClient(supabaseUrl, supabaseKey);
       client.channel('tasks-channel').on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
+          console.log('REALTIME_EVENT_DETECTED:', payload.eventType);
           init(); 
-      }).subscribe();
+      }).subscribe((status) => console.log('REALTIME_STATUS:', status));
     }
 
     async function init() {
@@ -86,12 +88,7 @@
         const res = await fetch('/api/tasks');
         const data = await res.json();
         tasks = Object.keys(data).flatMap(col => data[col].map(t => ({
-          ...t, 
-          id: t.id.toString(), 
-          column: col.toLowerCase(), 
-          assignedTo: t.assigned_agent || '', 
-          task_name: t.task_name || 'Untitled',
-          tags: t.tags || []
+          ...t, id: t.id.toString(), column: col.toLowerCase(), assignedTo: t.assigned_agent || '', task_name: t.task_name || 'Untitled', description: t.description || '', tags: t.tags || []
         })));
         renderBoard();
       } catch (e) { console.error("Init failed", e); }
@@ -99,7 +96,6 @@
 
     function renderBoard() {
       const board = document.getElementById('board');
-      if (!board) return;
       board.innerHTML = columnNames.map(col => `
         <div class="column glass rounded-lg p-4">
           <div class="flex justify-between items-center mb-5 border-b border-white/5 pb-3">
@@ -127,9 +123,7 @@
 
     function allowDrop(e) { e.preventDefault(); }
     function drag(e) { e.dataTransfer.setData("text", e.target.dataset.id); e.target.classList.add('dragging'); }
-    
-    // FIXED: Function must be async to use await
-    async function drop(e) {
+    function drop(e) {
       e.preventDefault();
       const id = e.dataTransfer.getData("text");
       const columnBody = e.target.closest('.column-body');
@@ -138,19 +132,13 @@
       const task = tasks.find(t => t.id === id);
       if (task && task.column !== newCol) {
         task.column = newCol;
-        renderBoard(); // UI first for speed
-        await saveTasks();
+        saveTasks();
+        renderBoard();
       }
     }
 
     async function createNewTask(col) {
-      const newTask = { 
-        id: Date.now().toString(), 
-        task_name: 'New Objective', 
-        column: col, 
-        assignedTo: '', 
-        tags: []
-      };
+      const newTask = { id: Date.now().toString(), task_name: 'New Objective', column: col, description: '', assignedTo: '', tags: [] };
       tasks.push(newTask);
       renderBoard();
       await saveTasks();
@@ -159,17 +147,10 @@
 
     async function saveTasks() {
       try {
-        const payload = tasks.map(t => ({
-          id: t.id,
-          task_name: t.task_name,
-          column: t.column,
-          assignedTo: t.assignedTo,
-          tags: t.tags || []
-        }));
         await fetch('/api/tasks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tasks: payload, columns: columnNames })
+          body: JSON.stringify({ tasks, columns: columnNames })
         });
       } catch (e) { console.error("Save failed", e); }
     }
@@ -180,6 +161,7 @@
       if (!t) return;
       document.getElementById('editTaskId').value = t.id;
       document.getElementById('editTitle').value = t.task_name;
+      document.getElementById('editDescription').value = t.description || '';
       document.getElementById('editAssignedTo').value = t.assignedTo || '';
       document.getElementById('editTags').value = (t.tags || []).join(', ');
       document.getElementById('editModal').classList.replace('hidden', 'flex');
@@ -190,6 +172,7 @@
       const t = tasks.find(task => task.id === id);
       if (!t) return;
       t.task_name = document.getElementById('editTitle').value;
+      t.description = document.getElementById('editDescription').value;
       t.assignedTo = document.getElementById('editAssignedTo').value;
       t.tags = document.getElementById('editTags').value.split(',').map(tag => tag.trim()).filter(tag => tag);
       renderBoard();
@@ -203,7 +186,7 @@
       await saveTasks();
       closeEditModal();
     }
-    window.onload = () => { initRealtime(); init(); };
+    window.onload = () => { try { initRealtime(); init(); } catch(e) { console.error(e); } };
   </script>
 </body>
 </html>
