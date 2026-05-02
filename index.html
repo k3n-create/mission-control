@@ -12,8 +12,10 @@
     .glass { background: rgba(15, 15, 17, 0.85); backdrop-filter: blur(24px); border: 1px solid rgba(255, 255, 255, 0.08); }
     .card { background: rgba(30, 30, 35, 0.9); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 0.5rem; transition: all 0.2s; }
     .card:hover { transform: translateY(-2px); border-color: rgba(6, 182, 212, 0.3); }
+    .card.dragging { opacity: 0.5; border: 1px dashed #22d3ee; }
     .columns-container { display: flex; gap: 1.25rem; overflow-x: auto; height: 100%; }
     .column { flex: 1; min-width: 300px; display: flex; flex-direction: column; }
+    .column-body { flex: 1; min-height: 100px; }
     .tag-pill { background: rgba(255, 255, 255, 0.05); color: #94a3b8; font-size: 0.65rem; padding: 0.15rem 0.4rem; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.1); }
     .agent-badge { background: rgba(6, 182, 212, 0.15); color: #22d3ee; border: 1px solid rgba(6, 182, 212, 0.3); font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 0.25rem; text-transform: uppercase; }
     .modal-backdrop { background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(8px); }
@@ -68,6 +70,7 @@
     let columnNames = [...DEFAULT_COLUMNS];
     let realtimeSubscribed = false;
 
+    // --- REALTIME LOGIC ---
     function initRealtime() {
       console.log('DEBUG: Attempting Supabase connection...');
       if (realtimeSubscribed) return;
@@ -82,18 +85,22 @@
       client.channel('tasks-channel')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
           console.log('REALTIME_EVENT_DETECTED:', payload.eventType);
-          // Skip the complex ID logic and just re-fetch the truth
-          init(); 
+          init(); // Sync the truth
         })
         .subscribe((status) => console.log('REALTIME_STATUS:', status));
     }
 
+    // --- CORE BOARD LOGIC ---
     async function init() {
       try {
         const res = await fetch('/api/tasks');
         const data = await res.json();
         tasks = Object.keys(data).flatMap(col => data[col].map(t => ({
-          ...t, id: t.id.toString(), column: col.toLowerCase(), assignedTo: t.assigned_agent || ''
+          ...t, 
+          id: t.id.toString(), 
+          column: col.toLowerCase(), 
+          assignedTo: t.assigned_agent || '',
+          task_name: t.task_name || 'Untitled'
         })));
         renderBoard();
       } catch (e) { console.error("Init failed", e); }
@@ -103,10 +110,13 @@
       const board = document.getElementById('board');
       board.innerHTML = columnNames.map(col => `
         <div class="column glass rounded-lg p-4">
-          <div class="flex justify-between mb-4"><h3 class="text-xs font-bold tracking-widest">${displayNames[col] || col}</h3></div>
-          <div class="column-body space-y-3" data-column="${col}">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-xs font-bold tracking-widest uppercase">${displayNames[col] || col}</h3>
+            <button onclick="createNewTask('${col}')" class="text-cyan-500 hover:text-white font-bold text-lg">+</button>
+          </div>
+          <div class="column-body space-y-3" data-column="${col}" ondragover="allowDrop(event)" ondrop="drop(event)">
             ${tasks.filter(t => t.column === col).map(t => `
-              <div class="card p-4 cursor-pointer" onclick="openEditModal('${t.id}')">
+              <div class="card p-4 cursor-grab active:cursor-grabbing" draggable="true" ondragstart="drag(event)" data-id="${t.id}" onclick="openEditModal('${t.id}')">
                 ${t.assignedTo ? `<span class="agent-badge mb-2 block w-fit">${t.assignedTo}</span>` : ''}
                 <div class="text-sm font-semibold">${escapeHtml(t.task_name)}</div>
                 <div class="flex flex-wrap gap-1 mt-2">${(t.tags || []).map(tag => `<span class="tag-pill">${tag}</span>`).join('')}</div>
@@ -117,7 +127,58 @@
       `).join('');
     }
 
+    // --- INTERACTION LOGIC ---
+    function allowDrop(e) { e.preventDefault(); }
+    
+    function drag(e) {
+      e.dataTransfer.setData("text", e.target.dataset.id);
+      e.target.classList.add('dragging');
+    }
+
+    function drop(e) {
+      e.preventDefault();
+      const id = e.dataTransfer.getData("text");
+      const columnBody = e.target.closest('.column-body');
+      if (!columnBody) return;
+      
+      const newCol = columnBody.dataset.column;
+      const task = tasks.find(t => t.id === id);
+      
+      if (task && task.column !== newCol) {
+        task.column = newCol;
+        saveTasks();
+        renderBoard();
+      }
+    }
+
+    async function createNewTask(col) {
+      const newTask = {
+        id: Date.now().toString(),
+        task_name: 'New Strategic Objective',
+        column: col,
+        description: '',
+        assignedTo: '',
+        tags: []
+      };
+      tasks.push(newTask);
+      await saveTasks();
+      renderBoard();
+      openEditModal(newTask.id);
+    }
+
+    async function saveTasks() {
+      try {
+        await fetch('/api/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tasks, columns: columnNames })
+        });
+      } catch (e) { console.error("Save failed", e); }
+    }
+
+    // --- MODAL & HELPERS ---
     function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    
     function openEditModal(id) {
       const t = tasks.find(task => task.id === id);
       if (!t) return;
@@ -128,6 +189,7 @@
       document.getElementById('editTags').value = (t.tags || []).join(', ');
       document.getElementById('editModal').classList.replace('hidden', 'flex');
     }
+
     function closeEditModal() { document.getElementById('editModal').classList.replace('flex', 'hidden'); }
 
     async function saveTaskEdit() {
@@ -138,11 +200,15 @@
       t.assignedTo = document.getElementById('editAssignedTo').value;
       t.tags = document.getElementById('editTags').value.split(',').map(tag => tag.trim()).filter(tag => tag);
       
-      await fetch('/api/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tasks, columns: columnNames })
-      });
+      await saveTasks();
+      renderBoard();
+      closeEditModal();
+    }
+
+    async function deleteTask() {
+      const id = document.getElementById('editTaskId').value;
+      tasks = tasks.filter(t => t.id !== id);
+      await saveTasks();
       renderBoard();
       closeEditModal();
     }
