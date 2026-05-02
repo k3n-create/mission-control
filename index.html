@@ -176,16 +176,37 @@ initRealtime();
     if (realtimeSubscribed) return; // Prevent multiple subscriptions
     realtimeSubscribed = true;
     const supabaseUrl = 'https://ljoiifswtizxhtwtilkf.supabase.co';
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqb2lpZnN3dGl6eGh0d3RpbGtmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzY2NzkyOCwiZXhwIjoyMDkzMjQzOTI4fQ.0991oxrox3y0S2Lqj3vzv2PIVx6_RbssRMT7RtC_Sj0';
+    const supabaseKey = 'sb_publishable_wICRlh3baVhWG9Lqw4u1Zg_ADbfIMtm';
     const supabase = window.Supabase.createClient(supabaseUrl, supabaseKey);
     
     // Subscribe to all changes on tasks table
     supabase
       .channel('tasks')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
-        console.log('Realtime event:', payload);
-        // Refresh board on any change
-        init();
+        console.log('Realtime Update Received:', payload);
+        
+        const { eventType, new: newRecord, old: oldRecord } = payload;
+        
+        if (eventType === 'INSERT') {
+          // Add new task to appropriate column
+          const col = newRecord.status?.toLowerCase() || 'todo';
+          if (!tasks.find(t => t.id === newRecord.id)) {
+            tasks.push({ id: newRecord.id, title: newRecord.content, column: col, priority: newRecord.priority });
+          }
+        } else if (eventType === 'UPDATE') {
+          // Update existing task
+          const idx = tasks.findIndex(t => t.id === newRecord.id);
+          if (idx !== -1) {
+            tasks[idx].title = newRecord.content;
+            tasks[idx].column = newRecord.status?.toLowerCase() || 'todo';
+            tasks[idx].priority = newRecord.priority;
+          }
+        } else if (eventType === 'DELETE') {
+          // Remove deleted task
+          tasks = tasks.filter(t => t.id !== oldRecord.id);
+        }
+        
+        renderBoard();
       })
       .subscribe();
     console.log('Subscribed to Supabase realtime');
