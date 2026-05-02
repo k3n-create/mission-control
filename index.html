@@ -3,30 +3,31 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mission Control</title>
+  <title>Mission Control - Diagnostic Mode</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    /* Removed the Unsplash image to bypass CORB blocking */
-    body { font-family: 'Inter', sans-serif; background-color: #0a0a0b; min-height: 100vh; }
+    body { font-family: 'Inter', sans-serif; background-color: #0a0a0b; color: #e2e8f0; min-height: 100vh; margin: 0; }
+    #sys-logger { background: #000; border-bottom: 2px solid #22d3ee; padding: 15px; font-family: 'JetBrains Mono', monospace; font-size: 12px; white-space: pre-wrap; z-index: 99999; position: relative; }
     .glass { background: rgba(15, 15, 17, 0.95); border: 1px solid rgba(255, 255, 255, 0.08); }
-    .card { background: rgba(30, 30, 35, 1); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 0.5rem; transition: all 0.2s; cursor: pointer; }
-    .card:hover { border-color: rgba(6, 182, 212, 0.5); }
+    .card { background: rgba(30, 30, 35, 1); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 0.5rem; transition: all 0.2s; cursor: pointer; padding: 1rem; margin-bottom: 0.75rem; }
     .columns-container { display: flex; gap: 1.25rem; overflow-x: auto; height: 100%; padding-bottom: 20px; }
-    .column { flex: 1; min-width: 280px; display: flex; flex-direction: column; }
-    .tag-pill { background: rgba(255, 255, 255, 0.1); color: #94a3b8; font-size: 0.65rem; padding: 0.15rem 0.4rem; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.1); }
+    .column { flex: 1; min-width: 280px; display: flex; flex-direction: column; padding: 1rem; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 0.5rem; }
+    .tag-pill { background: rgba(255, 255, 255, 0.1); color: #94a3b8; font-size: 0.65rem; padding: 0.15rem 0.4rem; border-radius: 4px; }
     .agent-badge { background: rgba(6, 182, 212, 0.15); color: #22d3ee; border: 1px solid rgba(6, 182, 212, 0.3); font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 0.25rem; text-transform: uppercase; }
-    .modal-backdrop { background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(8px); }
+    .modal-backdrop { background: rgba(0, 0, 0, 0.9); }
   </style>
 </head>
-<body class="text-gray-200">
+<body>
+  <div id="sys-logger" style="color: #0f0;">[SYSTEM BOOT INITIATED]</div>
+
   <header class="glass p-4 flex justify-between items-center sticky top-0 z-40">
     <div class="flex items-center gap-3">
       <div class="w-10 h-10 bg-cyan-600 rounded flex items-center justify-center font-bold text-black">J</div>
       <div>
         <h1 class="text-xl font-bold text-white">MISSION CONTROL</h1>
-        <p class="text-[10px] text-cyan-500 font-mono tracking-widest uppercase">System Direct-Link</p>
+        <p class="text-[10px] text-cyan-500 font-mono tracking-widest uppercase">Diagnostic Link</p>
       </div>
     </div>
   </header>
@@ -40,11 +41,11 @@
       <h2 class="text-xl font-bold text-white mb-2">Task Protocol</h2>
       <input type="hidden" id="editTaskId">
       <div class="space-y-5">
-        <input type="text" id="editTitle" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm focus:border-cyan-500 outline-none" placeholder="Objective Title">
+        <input type="text" id="editTitle" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm focus:border-cyan-500 outline-none">
         <textarea id="editDescription" rows="4" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm focus:border-cyan-500 outline-none" placeholder="Details"></textarea>
         <div class="grid grid-cols-2 gap-4">
           <select id="editAssignedTo" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm outline-none">
-            <option value="">Assign Asset</option><option value="JARVIS">JARVIS</option><option value="JADE">JADE</option>
+            <option value="">None</option><option value="JARVIS">JARVIS</option><option value="JADE">JADE</option>
           </select>
           <input type="text" id="editTags" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm outline-none" placeholder="tag1, tag2">
         </div>
@@ -60,131 +61,143 @@
   </div>
 
   <script>
-    const DEFAULT_COLUMNS = ['todo', 'assigned', 'in_progress', 'review', 'done'];
-    const displayNames = { 'todo': 'INBOX', 'assigned': 'ASSIGNED', 'in_progress': 'IN PROGRESS', 'review': 'REVIEW', 'done': 'DONE' };
-    const supabaseUrl = 'https://ljoiifswtizxhtwtilkf.supabase.co';
-    const supabaseKey = 'sb_publishable_wICRlh3baVhWG9Lqw4u1Zg_ADbfIMtm';
-
-    let supabase, tasks = [], manualLock = false;
-
-    function renderBoard() {
-      const board = document.getElementById('board');
-      if (!board) return;
-      board.innerHTML = DEFAULT_COLUMNS.map(col => `
-        <div class="column glass rounded-lg p-4">
-          <div class="flex justify-between items-center mb-5 border-b border-white/5 pb-3">
-            <h3 class="text-[10px] font-bold tracking-[0.3em] text-cyan-500 uppercase">${displayNames[col]}</h3>
-            <button onclick="createNewTask('${col}')" class="text-gray-400 hover:text-white font-bold text-lg">+</button>
-          </div>
-          <div class="column-body space-y-3 flex-1" id="col-${col}" ondragover="allowDrop(event)" ondrop="drop(event)">
-            ${tasks.filter(t => t.column === col).map(t => `
-              <div class="card p-4 mb-3" draggable="true" ondragstart="drag(event)" data-id="${t.id}" onclick="openEditModal('${t.id}')">
-                ${t.assignedTo ? `<span class="agent-badge mb-2 block w-fit">${t.assignedTo}</span>` : ''}
-                <div class="text-sm font-semibold text-gray-100">${escapeHtml(t.task_name)}</div>
-                <div class="flex flex-wrap gap-1 mt-2">${(t.tags || []).map(tag => `<span class="tag-pill">${tag}</span>`).join('')}</div>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      `).join('');
+    // --- DIAGNOSTIC LOGGING ENGINE ---
+    const logger = document.getElementById('sys-logger');
+    function sysLog(msg) { logger.innerText += '\n>> ' + msg; console.log(msg); }
+    function sysErr(msg, e) { 
+        logger.innerText += '\n[CRITICAL FAILURE] ' + msg + (e ? ': ' + e.message : ''); 
+        logger.style.color = '#ef4444'; 
+        console.error(msg, e);
     }
 
-    async function init() {
-      renderBoard(); // Draw immediately
-      try {
-        if (!window.supabase) return;
-        supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+    try {
+        sysLog("Initializing variables...");
+        const DEFAULT_COLUMNS = ['todo', 'assigned', 'in_progress', 'review', 'done'];
+        const displayNames = { 'todo': 'INBOX', 'assigned': 'ASSIGNED', 'in_progress': 'IN PROGRESS', 'review': 'REVIEW', 'done': 'DONE' };
+        const supabaseUrl = 'https://ljoiifswtizxhtwtilkf.supabase.co';
+        const supabaseKey = 'sb_publishable_wICRlh3baVhWG9Lqw4u1Zg_ADbfIMtm';
+        let supabase, tasks = [], manualLock = false;
 
-        const { data, error } = await supabase.from('tasks').select('*');
-        if (error) throw error;
-
-        tasks = data.map(t => ({
-          id: t.id.toString(), column: (t.status || 'todo').toLowerCase(),
-          assignedTo: t.assigned_agent || '', task_name: t.content || 'Untitled',
-          description: t.description || '', tags: t.tags || []
-        }));
-
-        renderBoard();
-
-        supabase.channel('tasks-channel').on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
-            if (!manualLock) init();
-        }).subscribe();
-      } catch (e) { console.error("CONNECTION FAILURE:", e); }
-    }
-
-    function allowDrop(e) { e.preventDefault(); }
-    function drag(e) { e.dataTransfer.setData("text", e.target.dataset.id); }
-    
-    async function drop(e) {
-      e.preventDefault();
-      const id = e.dataTransfer.getData("text");
-      const columnBody = e.target.closest('.column-body');
-      if (!columnBody) return;
-      const task = tasks.find(t => t.id === id);
-      if (task) {
-        task.column = columnBody.id.replace('col-', '');
-        renderBoard();
-        await pushTruth(task);
-      }
-    }
-
-    async function createNewTask(col) {
-      const newTask = { id: Date.now().toString(), task_name: 'NEW_OBJECTIVE', column: col, description: '', assignedTo: '', tags: [] };
-      tasks.push(newTask);
-      renderBoard();
-      await pushTruth(newTask);
-      openEditModal(newTask.id);
-    }
-
-    async function pushTruth(task) {
-      manualLock = true;
-      try {
-        if (task && supabase) {
-          await supabase.from('tasks').upsert({
-              id: task.id, content: task.task_name, assigned_agent: task.assignedTo,
-              status: task.column, description: task.description, tags: task.tags
-          });
+        sysLog("Variables ready. Defining Board Drawer...");
+        function renderBoard() {
+            sysLog("Drawing board UI...");
+            const board = document.getElementById('board');
+            if (!board) throw new Error("Could not find <div id='board'> in HTML");
+            
+            board.innerHTML = DEFAULT_COLUMNS.map(col => `
+                <div class="column glass">
+                <div class="flex justify-between items-center mb-5 border-b border-white/5 pb-3">
+                    <h3 class="text-[10px] font-bold tracking-[0.3em] text-cyan-500 uppercase">${displayNames[col]}</h3>
+                    <button onclick="createNewTask('${col}')" class="text-gray-400 hover:text-white font-bold text-lg">+</button>
+                </div>
+                <div class="column-body space-y-3 flex-1" id="col-${col}" ondragover="allowDrop(event)" ondrop="drop(event)">
+                    ${tasks.filter(t => t.column === col).map(t => `
+                    <div class="card" draggable="true" ondragstart="drag(event)" data-id="${t.id}" onclick="openEditModal('${t.id}')">
+                        ${t.assignedTo ? `<span class="agent-badge mb-2 block w-fit">${t.assignedTo}</span>` : ''}
+                        <div class="text-sm font-semibold text-gray-100">${escapeHtml(t.task_name)}</div>
+                        <div class="flex flex-wrap gap-1 mt-2">${(t.tags || []).map(tag => `<span class="tag-pill">${tag}</span>`).join('')}</div>
+                    </div>
+                    `).join('')}
+                </div>
+                </div>
+            `).join('');
+            sysLog("Board drawn successfully.");
         }
-        fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tasks: tasks.map(t => ({ ...t, content: t.task_name, assigned_agent: t.assignedTo, status: t.column })), columns: DEFAULT_COLUMNS }) }).catch(() => console.log("Railway API offline"));
-        setTimeout(() => manualLock = false, 3000);
-      } catch (e) { manualLock = false; }
-    }
 
-    function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-    function openEditModal(id) {
-      const t = tasks.find(task => task.id === id); if (!t) return;
-      document.getElementById('editTaskId').value = t.id;
-      document.getElementById('editTitle').value = t.task_name;
-      document.getElementById('editDescription').value = t.description;
-      document.getElementById('editAssignedTo').value = t.assignedTo;
-      document.getElementById('editTags').value = (t.tags || []).join(', ');
-      document.getElementById('editModal').classList.replace('hidden', 'flex');
-    }
-    function closeEditModal() { document.getElementById('editModal').classList.replace('hidden', 'flex'); }
+        async function init() {
+            sysLog("Boot sequence execution started.");
+            renderBoard();
 
-    async function saveTaskEdit() {
-      const id = document.getElementById('editTaskId').value, t = tasks.find(task => task.id === id);
-      if (t) {
-        t.task_name = document.getElementById('editTitle').value;
-        t.description = document.getElementById('editDescription').value;
-        t.assignedTo = document.getElementById('editAssignedTo').value;
-        t.tags = document.getElementById('editTags').value.split(',').map(tag => tag.trim()).filter(tag => tag);
-        renderBoard(); await pushTruth(t);
-      }
-      closeEditModal();
-    }
+            sysLog("Checking for Supabase Database SDK...");
+            if (typeof window.supabase === 'undefined') {
+                sysErr("SUPABASE SDK MISSING. The browser blocked the library from loading.");
+                return;
+            }
+            
+            sysLog("SDK found. Attempting connection to Database...");
+            supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+            
+            const { data, error } = await supabase.from('tasks').select('*');
+            if (error) {
+                sysErr("Database refused connection", error);
+                return;
+            }
+            
+            sysLog("Connection secured. Loaded " + data.length + " tasks.");
+            tasks = data.map(t => ({
+                id: t.id.toString(), column: (t.status || 'todo').toLowerCase(),
+                assignedTo: t.assigned_agent || '', task_name: t.content || 'Untitled',
+                description: t.description || '', tags: t.tags || []
+            }));
+            
+            sysLog("Redrawing board with new data...");
+            renderBoard();
 
-    async function deleteTask() {
-      const id = document.getElementById('editTaskId').value;
-      if (confirm("TERMINATE MISSION?")) {
-        if (supabase) await supabase.from('tasks').delete().eq('id', id);
-        tasks = tasks.filter(t => t.id !== id);
-        renderBoard(); closeEditModal();
-      }
-    }
+            supabase.channel('tasks-channel').on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
+                if (!manualLock) init();
+            }).subscribe();
 
-    /* CRITICAL FIX: Trigger exactly when DOM is ready, bypass image waits */
-    document.addEventListener('DOMContentLoaded', init);
+            sysLog("SYSTEM ONLINE.");
+            setTimeout(() => { logger.style.display = 'none'; }, 2500); // Hide console on success
+        }
+
+        // Action Functions
+        function allowDrop(e) { e.preventDefault(); }
+        function drag(e) { e.dataTransfer.setData("text", e.target.dataset.id); }
+        async function drop(e) {
+            e.preventDefault();
+            const id = e.dataTransfer.getData("text"), columnBody = e.target.closest('.column-body');
+            if (!columnBody) return;
+            const task = tasks.find(t => t.id === id);
+            if (task) { task.column = columnBody.id.replace('col-', ''); renderBoard(); await pushTruth(task); }
+        }
+        async function createNewTask(col) {
+            const newTask = { id: Date.now().toString(), task_name: 'NEW_OBJECTIVE', column: col, description: '', assignedTo: '', tags: [] };
+            tasks.push(newTask); renderBoard(); await pushTruth(newTask); openEditModal(newTask.id);
+        }
+        async function pushTruth(task) {
+            manualLock = true;
+            try {
+                if (task && supabase) {
+                    await supabase.from('tasks').upsert({
+                        id: task.id, content: task.task_name, assigned_agent: task.assignedTo,
+                        status: task.column, description: task.description, tags: task.tags
+                    });
+                }
+                setTimeout(() => manualLock = false, 3000);
+            } catch (e) { manualLock = false; sysErr("Save failed", e); }
+        }
+        function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+        function openEditModal(id) {
+            const t = tasks.find(task => task.id === id); if (!t) return;
+            document.getElementById('editTaskId').value = t.id; document.getElementById('editTitle').value = t.task_name;
+            document.getElementById('editDescription').value = t.description; document.getElementById('editAssignedTo').value = t.assignedTo;
+            document.getElementById('editTags').value = (t.tags || []).join(', '); document.getElementById('editModal').classList.replace('hidden', 'flex');
+        }
+        function closeEditModal() { document.getElementById('editModal').classList.replace('hidden', 'flex'); }
+        async function saveTaskEdit() {
+            const id = document.getElementById('editTaskId').value, t = tasks.find(task => task.id === id);
+            if (t) {
+                t.task_name = document.getElementById('editTitle').value; t.description = document.getElementById('editDescription').value;
+                t.assignedTo = document.getElementById('editAssignedTo').value; t.tags = document.getElementById('editTags').value.split(',').map(tag => tag.trim()).filter(tag => tag);
+                renderBoard(); await pushTruth(t);
+            }
+            closeEditModal();
+        }
+        async function deleteTask() {
+            const id = document.getElementById('editTaskId').value;
+            if (confirm("TERMINATE MISSION?")) {
+                if (supabase) await supabase.from('tasks').delete().eq('id', id);
+                tasks = tasks.filter(t => t.id !== id); renderBoard(); closeEditModal();
+            }
+        }
+
+        // FIRE IMMEDIATELY (Do not wait for onload)
+        init();
+
+    } catch (e) {
+        sysErr("GLOBAL SCRIPT CRASH", e);
+    }
   </script>
 </body>
 </html>
