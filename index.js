@@ -27,6 +27,7 @@ app.get('/api/tasks', async (req, res) => {
     
 const statusMap = { 'INBOX': 'todo', 'ASSIGNED': 'assigned', 'IN PROGRESS': 'in_progress', 'REVIEW': 'review', 'DONE': 'done' };
 
+const priorityMap = { 'low': 1, 'medium': 3, 'high': 5 };
 const reverseStatusMap = { 'todo': 'INBOX', 'assigned': 'ASSIGNED', 'in_progress': 'IN PROGRESS', 'review': 'REVIEW', 'done': 'DONE' };
 const reverseMapStatus = (s) => reverseStatusMap[s] || s?.toUpperCase() || 'INBOX';
 
