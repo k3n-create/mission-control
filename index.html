@@ -139,7 +139,7 @@
     }
 
     async function createNewTask(col) {
-      const newTask = { id: Date.now().toString(), task_name: 'New Strategic Objective', column: col, description: '', assignedTo: '', tags: [] };
+      const newTask = { id: crypto.randomUUID(), task_name: 'New Strategic Objective', column: col, description: '', assignedTo: '', tags: [] };
       tasks.push(newTask);
       renderBoard();
       await saveTasks();
