@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mission Control</title>
-  <script src="https://cdn.tailwindcss.com">// Initialize both
-init();
+  <script src="https://cdn.tailwindcss.com">// Initialize both (realtime first to start listening before data loads)
 initRealtime();
+init();
 </script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -173,6 +173,7 @@ initRealtime();
 
     let realtimeSubscribed = false;
   function initRealtime() {
+    console.log('DEBUG: Attempting Supabase connection...');
     if (realtimeSubscribed) return; // Prevent multiple subscriptions
     realtimeSubscribed = true;
     const supabaseUrl = 'https://ljoiifswtizxhtwtilkf.supabase.co';
@@ -240,7 +241,7 @@ initRealtime();
           }))
         );
 
-        console.log("System Live: Syncing with Redis");
+        console.log("System Live: Syncing with Supabase");
         renderBoard();
       } catch (error) {
         console.error("Critical: Could not sync with tasks.json. Check file permissions.", error);
