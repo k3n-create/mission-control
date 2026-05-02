@@ -61,7 +61,7 @@
             </select>
           </div>
           <div>
-            <label class="block text-[10px] text-cyan-500 font-bold mb-1.5 uppercase">Tags (comma-separated)</label>
+            <label class="block text-[10px] text-cyan-500 font-bold mb-1.5 uppercase">Tags</label>
             <input type="text" id="editTags" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm outline-none" placeholder="tag1, tag2">
           </div>
         </div>
@@ -79,42 +79,37 @@
   <script>
     const DEFAULT_COLUMNS = ['todo', 'assigned', 'in_progress', 'review', 'done'];
     const displayNames = { 'todo': 'INBOX', 'assigned': 'ASSIGNED', 'in_progress': 'IN PROGRESS', 'review': 'REVIEW', 'done': 'DONE' };
+    const supabaseUrl = 'https://ljoiifswtizxhtwtilkf.supabase.co';
+    const supabaseKey = 'sb_publishable_wICRlh3baVhWG9Lqw4u1Zg_ADbfIMtm';
+    let supabase;
     let tasks = [];
     let columnNames = [...DEFAULT_COLUMNS];
     let isSaving = false;
     let lastManualUpdate = 0;
 
     function initRealtime() {
-      const supabaseUrl = 'https://ljoiifswtizxhtwtilkf.supabase.co';
-      const supabaseKey = 'sb_publishable_wICRlh3baVhWG9Lqw4u1Zg_ADbfIMtm';
       if (!window.supabase) return;
-      const client = window.supabase.createClient(supabaseUrl, supabaseKey);
-      client.channel('tasks-channel').on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
+      supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+      supabase.channel('tasks-channel').on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
           if (!isSaving) fetchTasksSilently(); 
       }).subscribe();
     }
 
     async function fetchTasksSilently() {
-      // Ignore incoming DB state for 3 seconds after a manual override
       if (Date.now() - lastManualUpdate < 3000) return; 
-
       try {
         const res = await fetch('/api/tasks');
         const data = await res.json();
         tasks = Object.keys(data).flatMap(col => data[col].map(t => ({
-          ...t, 
-          id: t.id.toString(), 
-          column: col.toLowerCase(), 
-          assignedTo: t.assigned_agent || '', 
-          task_name: t.task_name || t.content || 'Untitled'
+          ...t, id: t.id.toString(), column: col.toLowerCase(), assignedTo: t.assigned_agent || '', task_name: t.task_name || t.content || 'Untitled'
         })));
         renderBoard();
       } catch (e) { console.error("Sync failed", e); }
     }
 
     async function init() {
-      await fetchTasksSilently();
       initRealtime();
+      await fetchTasksSilently();
     }
 
     function renderBoard() {
@@ -158,7 +153,7 @@
       if (task && task.column !== newCol) {
         task.column = newCol;
         renderBoard();
-        await saveToServer();
+        await saveToServer(task);
       }
     }
 
@@ -166,19 +161,29 @@
       const newTask = { id: Date.now().toString(), task_name: 'NEW_OBJECTIVE', column: col, description: '', assignedTo: '', tags: [] };
       tasks.push(newTask);
       renderBoard();
-      await saveToServer();
+      await saveToServer(newTask); // Write NEW task to Supabase immediately
       openEditModal(newTask.id);
     }
 
-    async function saveToServer() {
+    async function saveToServer(specificTask = null) {
       isSaving = true;
       lastManualUpdate = Date.now();
       try {
-        const payload = tasks.map(t => ({ 
-          ...t, 
-          content: t.task_name, 
-          assigned_agent: t.assignedTo,
-          status: t.column 
+        // Direct Supabase Update
+        if (specificTask && !specificTask.isDeleted) {
+          await supabase.from('tasks').upsert({
+            id: specificTask.id,
+            content: specificTask.task_name,
+            assigned_agent: specificTask.assignedTo,
+            status: specificTask.column,
+            description: specificTask.description,
+            tags: specificTask.tags
+          });
+        }
+        
+        // Broadcast Sync to Agents
+        const payload = tasks.filter(t => !t.isDeleted).map(t => ({ 
+          ...t, content: t.task_name, assigned_agent: t.assignedTo, status: t.column 
         }));
         
         await fetch('/api/tasks', {
@@ -189,7 +194,7 @@
         
         setTimeout(() => { isSaving = false; }, 3000);
       } catch (e) { 
-        console.error("Critical Save Failure", e);
+        console.error("Critical Sync Failure", e);
         isSaving = false; 
       }
     }
@@ -218,7 +223,7 @@
         t.assignedTo = document.getElementById('editAssignedTo').value;
         t.tags = document.getElementById('editTags').value.split(',').map(tag => tag.trim()).filter(tag => tag);
         renderBoard();
-        await saveToServer();
+        await saveToServer(t); // Update edited task in Supabase immediately
       }
       closeEditModal();
     }
@@ -226,6 +231,11 @@
     async function deleteTask() {
       const id = document.getElementById('editTaskId').value;
       if (confirm("STRICT_TERMINATE: Permanently delete this objective?")) {
+        const t = tasks.find(task => task.id === id);
+        if (t) {
+          t.isDeleted = true;
+          await supabase.from('tasks').delete().eq('id', id); // Wipe from DB immediately
+        }
         tasks = tasks.filter(t => t.id !== id);
         renderBoard();
         await saveToServer();
