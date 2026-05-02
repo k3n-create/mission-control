@@ -23,7 +23,15 @@ app.get('/', async (req, res) => {
 // GET /api/tasks
 app.get('/api/tasks', async (req, res) => {
   try {
-    const TEST_CLIENT_ID = process.env.TEST_CLIENT_ID || '5f80e462-ddfb-45fe-874d-7b36463b26d6';
+    
+const statusMap = { 'INBOX': 'todo', 'ASSIGNED': 'assigned', 'IN PROGRESS': 'in_progress', 'REVIEW': 'review', 'DONE': 'done' };
+
+const reverseStatusMap = { 'todo': 'INBOX', 'assigned': 'ASSIGNED', 'in_progress': 'IN PROGRESS', 'review': 'REVIEW', 'done': 'DONE' };
+const reverseMapStatus = (s) => reverseStatusMap[s] || s?.toUpperCase() || 'INBOX';
+
+const mapStatus = (s) => statusMap[s?.toUpperCase()] || s?.toLowerCase() || 'todo';
+
+const TEST_CLIENT_ID = process.env.TEST_CLIENT_ID || '5f80e462-ddfb-45fe-874d-7b36463b26d6';
     
     const { data, error } = await supabase
       .from('tasks')
@@ -46,7 +54,7 @@ app.get('/api/tasks', async (req, res) => {
         id: task.id,
         task_name: task.content,
         
-        status: task.status.toLowerCase(),
+        status: mapStatus(task.status),
         priority: task.priority,
         
       });
