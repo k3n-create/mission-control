@@ -189,15 +189,15 @@
       t.assignedTo = document.getElementById('editAssignedTo').value;
       t.tags = document.getElementById('editTags').value.split(',').map(tag => tag.trim()).filter(tag => tag);
       console.log('Saving task:', JSON.stringify(t));
-      renderBoard();
       await saveTasks();
+      renderBoard();
       closeEditModal();
     }
     async function deleteTask() {
       const id = document.getElementById('editTaskId').value;
       tasks = tasks.filter(t => t.id !== id);
-      renderBoard();
       await saveTasks();
+      renderBoard();
       closeEditModal();
     }
     window.onload = () => { try { initRealtime(); init(); } catch(e) { console.error(e); } };
