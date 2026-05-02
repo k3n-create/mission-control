@@ -166,55 +166,14 @@
 
     async function saveTasks() {
       try {
+        // Universal Payload Patch: Map to both old and new keys for backend compatibility
+        const payload = tasks.map(t => ({
+          ...t,
+          content: t.task_name,
+          assigned_agent: t.assignedTo
+        }));
+
         await fetch('/api/tasks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tasks, columns: columnNames })
-        });
-      } catch (e) { console.error("Save failed", e); }
-    }
-
-    function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-    
-    function openEditModal(id) {
-      const t = tasks.find(task => task.id === id);
-      if (!t) return;
-      document.getElementById('editTaskId').value = t.id;
-      document.getElementById('editTitle').value = t.task_name;
-      document.getElementById('editDescription').value = t.description || '';
-      document.getElementById('editAssignedTo').value = t.assignedTo || '';
-      document.getElementById('editTags').value = (t.tags || []).join(', ');
-      document.getElementById('editModal').classList.replace('hidden', 'flex');
-    }
-
-    function closeEditModal() { document.getElementById('editModal').classList.replace('flex', 'hidden'); }
-
-    async function saveTaskEdit() {
-      const id = document.getElementById('editTaskId').value;
-      const t = tasks.find(task => task.id === id);
-      if (t) {
-        t.task_name = document.getElementById('editTitle').value.trim() || 'Untitled';
-        t.description = document.getElementById('editDescription').value.trim();
-        t.assignedTo = document.getElementById('editAssignedTo').value;
-        const tagsStr = document.getElementById('editTags').value;
-        t.tags = tagsStr ? tagsStr.split(',').map(tag => tag.trim()).filter(tag => tag) : [];
-        renderBoard();
-        await saveTasks();
-      }
-      closeEditModal();
-    }
-
-    async function deleteTask() {
-      const id = document.getElementById('editTaskId').value;
-      if (confirm("Terminate this task permanently?")) {
-        tasks = tasks.filter(t => t.id !== id);
-        renderBoard();
-        await saveTasks();
-        closeEditModal();
-      }
-    }
-
-    window.onload = () => { initRealtime(); init(); };
-  </script>
-</body>
-</html>
+          body: JSON.stringify({ tasks:
