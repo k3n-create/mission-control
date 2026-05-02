@@ -151,7 +151,18 @@
         const response = await fetch('/api/tasks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tasks, columns: columnNames })
+          body: JSON.stringify({ 
+        tasks: tasks.map(t => ({
+          id: t.id,
+          content: t.task_name,
+          column: t.column,
+          assignedTo: t.assignedTo,
+          status: t.status,
+          priority: t.priority || 3,
+          tags: t.tags || []
+        })), 
+        columns: columnNames 
+      })
         });
         if (!response.ok) throw new Error('Network error');
       } catch (e) { console.error("Save failed", e); }
@@ -159,7 +170,7 @@
 
     function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
     function openEditModal(id) {
-      const t = tasks.find(task => task.id === id);
+      const t = tasks.find(task => task.id.toString() === id);
       if (!t) return;
       document.getElementById('editTaskId').value = t.id;
       document.getElementById('editTitle').value = t.task_name;
@@ -171,11 +182,12 @@
     function closeEditModal() { document.getElementById('editModal').classList.replace('flex', 'hidden'); }
     async function saveTaskEdit() {
       const id = document.getElementById('editTaskId').value;
-      const t = tasks.find(task => task.id === id);
+      const t = tasks.find(task => task.id.toString() === id);
       t.task_name = document.getElementById('editTitle').value;
       t.description = document.getElementById('editDescription').value;
       t.assignedTo = document.getElementById('editAssignedTo').value;
       t.tags = document.getElementById('editTags').value.split(',').map(tag => tag.trim()).filter(tag => tag);
+      console.log('Saving task:', JSON.stringify(t));
       renderBoard();
       await saveTasks();
       closeEditModal();
