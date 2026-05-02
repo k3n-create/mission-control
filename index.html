@@ -183,11 +183,13 @@
     function closeEditModal() { document.getElementById('editModal').classList.replace('flex', 'hidden'); }
     async function saveTaskEdit() {
       const id = document.getElementById('editTaskId').value;
-      const t = tasks.find(task => task.id.toString() === id);
+      const t = tasks.find(task => task.id === id || task.id.toString() === id);
+      if (!t) { console.error('Task not found:', id); return; }
       t.task_name = document.getElementById('editTitle').value;
       t.description = document.getElementById('editDescription').value;
       t.assignedTo = document.getElementById('editAssignedTo').value;
       t.tags = document.getElementById('editTags').value.split(',').map(tag => tag.trim()).filter(tag => tag);
+      t.priority = t.priority || 3;
       console.log('Saving task:', JSON.stringify(t));
       await saveTasks();
       renderBoard();
