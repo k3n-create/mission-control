@@ -54,7 +54,7 @@ app.get('/api/tasks', async (req, res) => {
  
  const { data, error } = await supabase
  .from('tasks')
- .select('*')
+ .select('id,content,status,priority,assigned_agent,description,tags')
  .eq('client_id', TEST_CLIENT_ID)
  .order('created_at', { ascending: true });
 
