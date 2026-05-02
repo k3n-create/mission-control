@@ -47,10 +47,11 @@ const TEST_CLIENT_ID = process.env.TEST_CLIENT_ID || '5f80e462-ddfb-45fe-874d-7b
 
     const tasksByColumn = {};
     data.forEach(task => {
-      if (!tasksByColumn[task.status]) {
-        tasksByColumn[task.status] = [];
+      const dashboardStatus = mapStatus(task.status);
+      if (!tasksByColumn[dashboardStatus]) {
+        tasksByColumn[dashboardStatus] = [];
       }
-      tasksByColumn[task.status].push({
+      tasksByColumn[dashboardStatus].push({
         id: task.id,
         task_name: task.content,
         
