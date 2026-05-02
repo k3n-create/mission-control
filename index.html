@@ -89,7 +89,7 @@
         const res = await fetch('/api/tasks');
         const data = await res.json();
         tasks = Object.keys(data).flatMap(col => data[col].map(t => ({
-          ...t, id: t.id.toString(), column: col.toLowerCase(), assignedTo: t.assigned_agent || '', task_name: t.task_name || 'Untitled'
+          ...t, id: t.id.toString(), column: col.toLowerCase(), assignedTo: t.agent_id || '', task_name: t.task_name || 'Untitled'
         })));
         renderBoard();
       } catch (e) { console.error("Init failed", e); }
@@ -157,7 +157,7 @@
           id: t.id,
           content: t.task_name,
           status: t.column,  // column becomes status
-          assignedTo: t.assignedTo,
+          agent_id: t.assignedTo,
           priority: t.priority || 3,
           tags: t.tags || [],
           description: t.description || ''
