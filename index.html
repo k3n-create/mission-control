@@ -81,24 +81,9 @@
       
       client.channel('tasks-channel')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
-          console.log('REALTIME_EVENT_DETECTED:', payload);
-          const { eventType, new: rec, old: oldRec } = payload;
-          
-          if (eventType === 'INSERT' || eventType === 'UPDATE') {
-            const taskData = {
-              id: rec.id.toString(),
-              task_name: rec.content || 'Untitled',
-              column: (rec.status || 'todo').toLowerCase(),
-              tags: rec.tags || [],
-              assignedTo: rec.assigned_agent || '',
-              description: rec.description || ''
-            };
-            const idx = tasks.findIndex(t => t.id === taskData.id);
-            if (idx !== -1) tasks[idx] = taskData; else tasks.push(taskData);
-          } else if (eventType === 'DELETE') {
-            tasks = tasks.filter(t => t.id !== oldRec.id.toString());
-          }
-          renderBoard();
+          console.log('REALTIME_EVENT_DETECTED:', payload.eventType);
+          // Skip the complex ID logic and just re-fetch the truth
+          init(); 
         })
         .subscribe((status) => console.log('REALTIME_STATUS:', status));
     }
