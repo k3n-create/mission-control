@@ -113,7 +113,7 @@
             ${tasks.filter(t => t.column === col).map(t => `
               <div class="card p-4 cursor-grab mb-3" draggable="true" ondragstart="drag(event)" data-id="${t.id}" onclick="openEditModal('${t.id}')">
                 ${t.assignedTo ? `<span class="agent-badge mb-2 block w-fit">${t.assignedTo}</span>` : ''}
-                <div class="text-sm font-semibold text-gray-100">${escapeHtml(t.task_name)}</div>
+                <div class="text-base font-semibold text-gray-100 mb-1">${escapeHtml(t.task_name)}</div>
                 <div class="flex flex-wrap gap-1 mt-2">${(t.tags || []).map(tag => `<span class="tag-pill">${tag}</span>`).join('')}</div>
               </div>
             `).join('')}
