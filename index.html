@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mission Control</title>
   <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     body {
@@ -167,7 +168,27 @@
     let tasks = [];
     let columnNames = [];
 
-    async function init() {
+    function initRealtime() {
+    const supabaseUrl = 'https://ljoiifswtizxhtwtilkf.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqb2lpZnN3dGl6eGh0d3RpbGtmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzY2NzkyOCwiZXhwIjoyMDkzMjQzOTI4fQ.0991oxrox3y0S2Lqj3vzv2PIVx6_RbssRMT7RtC_Sj0';
+    const supabase = window.Supabase.createClient(supabaseUrl, supabaseKey);
+    
+    // Subscribe to all changes on tasks table
+    supabase
+      .channel('tasks')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
+        console.log('Realtime event:', payload);
+        // Refresh board on any change
+        init();
+      })
+      .subscribe();
+    console.log('Subscribed to Supabase realtime');
+  }
+
+  async function init() {
+    // Initialize Supabase realtime
+    initRealtime();
+
         localStorage.clear();
       // Load columns from LocalStorage as usual
       const savedColumns = localStorage.getItem(STORAGE_COLUMNS_KEY);
