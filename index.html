@@ -68,7 +68,7 @@
  <button onclick="createNewTask('${col}')" class="text-gray-400 hover:text-white font-bold">+</button>
  </div>
  <div class="flex-1 min-h-[300px]" id="col-${col}" ondragover="event.preventDefault()" ondrop="drop(event)">
- ${tasks.filter(t => statusMap[t.status] === col).map(t => `
+ ${tasks.filter(t => statusMap[t.status?.toUpperCase()] === col).map(t => `
  <div class="card" draggable="true" ondragstart="drag(event)" data-id="${t.id}" onclick="openEditModal('${t.id}')">
  ${t.assigned_agent ? `<span class="agent-badge">${t.assigned_agent}</span>` : ''}
  <div class="text-sm font-semibold">${t.content || 'Untitled'}</div>
