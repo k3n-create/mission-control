@@ -160,15 +160,33 @@
     async function pushTruth(task) {
       manualLock = true;
       try {
-        if (task && supabaseClient) {
-          await supabaseClient.from('tasks').upsert({
-              id: task.id, content: task.task_name, assigned_agent: task.assignedTo,
-              status: task.column, description: task.description, tags: task.tags
-          });
+        // EXCLUSIVE API HANDOFF: 
+        // We pass the raw data directly to Jarvis's intelligent backend.
+        // This avoids Postgres UUID crashes and guarantees proper partial updates.
+        const res = await fetch('/api/tasks', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ 
+                tasks: tasks.map(t => ({ 
+                    ...t, 
+                    content: t.task_name, 
+                    assigned_agent: t.assignedTo, 
+                    status: t.column 
+                })), 
+                columns: DEFAULT_COLUMNS 
+            }) 
+        });
+        
+        // As soon as the backend processes the "Fake ID" and generates a real one, fetch the real one back!
+        if (res.ok) {
+            await fetchLatest();
         }
-        fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tasks: tasks.map(t => ({ ...t, content: t.task_name, assigned_agent: t.assignedTo, status: t.column })), columns: DEFAULT_COLUMNS }) }).catch(() => {});
-        setTimeout(() => manualLock = false, 3000);
-      } catch (e) { manualLock = false; throw e; }
+        
+        setTimeout(() => manualLock = false, 500);
+      } catch (e) { 
+          manualLock = false; 
+          console.error("Backend Sync Error:", e);
+      }
     }
 
     function openEditModal(id) {
