@@ -16,6 +16,17 @@ const reverseStatusMap = { 'todo': 'INBOX', 'assigned': 'ASSIGNED', 'in_progress
 const mapStatus = (s) => statusMap[s?.toUpperCase()] || s?.toLowerCase() || 'todo';
 const reverseMapStatus = (s) => reverseStatusMap[s] || s?.toUpperCase() || 'INBOX';
 
+// Root route - serve index.html
+app.get('/', async (req, res) => {
+ try {
+ const html = await readFile('./index.html', 'utf-8');
+ res.set('Content-Type', 'text/html');
+ res.send(html);
+ } catch (err) {
+ res.status(500).send('Dashboard not found');
+ }
+});
+
 // GET /api/tasks - REMOVED CLIENT_ID FILTER
 app.get('/api/tasks', async (req, res) => {
  try {
