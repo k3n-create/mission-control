@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
 import express from 'express';
 import cors from 'cors';
 import { readFile } from 'fs/promises';
@@ -6,74 +5,51 @@ import { supabase } from './lib/supabase.js';
 
 const app = express();
 const PORT = process.env.PORT || 8080;
+const TEST_ID = '5f80e462-ddfb-45fe-874d-7b36463b26d6';
 
 app.use(cors());
 app.use(express.json());
 
-const statusMap = { 'INBOX': 'todo', 'ASSIGNED': 'assigned', 'IN PROGRESS': 'in_progress', 'REVIEW': 'review', 'DONE': 'done' };
-const reverseStatusMap = { 'todo': 'INBOX', 'assigned': 'ASSIGNED', 'in_progress': 'IN PROGRESS', 'review': 'REVIEW', 'done': 'DONE' };
-
-const mapStatus = (s) => statusMap[s?.toUpperCase()] || s?.toLowerCase() || 'todo';
-const reverseMapStatus = (s) => reverseStatusMap[s] || s?.toUpperCase() || 'INBOX';
-
-// --- ROOT ROUTE (Fixes White Screen) ---
+// ROOT ROUTE: Serves the dashboard
 app.get('/', async (req, res) => {
  try {
  const html = await readFile('./index.html', 'utf-8');
- res.set('Content-Type', 'text/html');
- res.send(html);
+ res.set('Content-Type', 'text/html').send(html);
  } catch (err) { res.status(500).send('index.html not found'); }
 });
 
-// GET /api/tasks
+// GET /api/tasks: Returns tasks organized by column for the dashboard
 app.get('/api/tasks', async (req, res) => {
  try {
- const TEST_ID = '5f80e462-ddfb-45fe-874d-7b36463b26d6';
  const { data, error } = await supabase.from('tasks').select('*').eq('client_id', TEST_ID).order('created_at', { ascending: true });
  if (error) throw error;
-
- const tasksByColumn = {};
- if (data) {
- data.forEach(task => {
- const dashboardStatus = mapStatus(task.status);
- if (!tasksByColumn[dashboardStatus]) tasksByColumn[dashboardStatus] = [];
- tasksByColumn[dashboardStatus].push({
- id: task.id,
- task_name: task.content,
- column: dashboardStatus, // Changed to 'column' to match frontend
- assignedTo: task.assigned_agent || '', 
- description: task.description || '',
- tags: task.tags || []
- });
- });
- }
- res.status(200).json(tasksByColumn);
+ res.status(200).json(data || []);
  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// POST /api/tasks
+// POST /api/tasks: High-speed Batch Upsert
 app.post('/api/tasks', async (req, res) => {
  try {
- const TEST_ID = '5f80e462-ddfb-45fe-874d-7b36463b26d6';
  const { tasks } = req.body;
- for (const task of tasks) {
- const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(task.id);
- const payload = {
+ if (!tasks) return res.status(400).send('No tasks provided');
+
+ // Clean tasks for DB: Ensure they have the correct client_id and valid UUIDs
+ const dbTasks = tasks.map(t => ({
+ id: t.id.includes('-') ? t.id : undefined, // Let Supabase generate ID if it's a fake timestamp
  client_id: TEST_ID,
- content: task.task_name,
- status: reverseMapStatus(task.column),
- description: task.description,
- tags: task.tags,
- assigned_agent: task.assignedTo
- };
- if (!isUUID) { await supabase.from('tasks').insert({ ...payload, id: uuidv4() }); }
- else { await supabase.from('tasks').update(payload).eq('id', task.id); }
- }
- res.status(200).json({ success: true });
+ content: t.content || 'New Objective',
+ status: (t.status || 'INBOX').toUpperCase(),
+ description: t.description || '',
+ tags: t.tags || [],
+ assigned_agent: t.assigned_agent || ''
+ }));
+
+ const { data, error } = await supabase.from('tasks').upsert(dbTasks, { onConflict: 'id' }).select();
+ if (error) throw error;
+ res.status(200).json({ success: true, data });
  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// DELETE /api/tasks/:id
 app.delete('/api/tasks/:id', async (req, res) => {
  try {
  await supabase.from('tasks').delete().eq('id', req.params.id);
