@@ -150,7 +150,7 @@
     }
 
     async function createNewTask(col) {
-      const newTask = { id: Date.now().toString(), task_name: 'NEW_OBJECTIVE', column: col, description: '', assignedTo: '', tags: [] };
+      const newTask = { id: crypto.randomUUID(), task_name: 'NEW_OBJECTIVE', column: col, description: '', assignedTo: '', tags: [] };
       tasks.push(newTask);
       renderBoard();
       await pushTruth(newTask);
@@ -158,34 +158,30 @@
     }
 
     async function pushTruth(task) {
+      if (!supabaseClient) return;
       manualLock = true;
       try {
-        // EXCLUSIVE API HANDOFF: 
-        // We pass the raw data directly to Jarvis's intelligent backend.
-        // This avoids Postgres UUID crashes and guarantees proper partial updates.
-        const res = await fetch('/api/tasks', { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify({ 
-                tasks: tasks.map(t => ({ 
-                    ...t, 
-                    content: t.task_name, 
-                    assigned_agent: t.assignedTo, 
-                    status: t.column 
-                })), 
-                columns: DEFAULT_COLUMNS 
-            }) 
-        });
+        // Direct Supabase upsert with real UUID - no middleware
+        const { error } = await supabaseClient.from('tasks').upsert({
+          id: task.id,
+          content: task.task_name,
+          assigned_agent: task.assignedTo,
+          status: task.column,
+          description: task.description || '',
+          tags: task.tags || []
+        }, { onConflict: 'id' });
         
-        // As soon as the backend processes the "Fake ID" and generates a real one, fetch the real one back!
-        if (res.ok) {
-            await fetchLatest();
+        if (error) {
+          console.error('Supabase upsert error:', error);
+          throw error;
         }
         
+        // Fetch fresh data from database
+        await fetchLatest();
         setTimeout(() => manualLock = false, 500);
       } catch (e) { 
           manualLock = false; 
-          console.error("Backend Sync Error:", e);
+          console.error("Database Sync Error:", e);
       }
     }
 
