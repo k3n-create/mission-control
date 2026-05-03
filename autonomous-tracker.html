@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agentic Labs | Autonomous Tracker</title>
+    <style>
+        /* KFC Professional Aesthetic */
+        :root {
+            --primary: #d32f2f;
+            --primary-dark: #b71c1c;
+            --secondary: #212121;
+            --surface: #ffffff;
+            --surface-light: #f8f9fa;
+            --text: #212121;
+            --text-muted: #6c757d;
+            --success: #2e7d32;
+            --danger: #c62828;
+            --border: #dee2e6;
+            --radius: 8px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background: var(--surface-light); color: var(--text); line-height: 1.6; padding-bottom: 50px; }
+
+        /* Header & Nav */
+        .header { background: #fff; padding: 1rem 2rem; border-bottom: 2px solid var(--primary); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .logo { font-size: 1.25rem; font-weight: 800; color: var(--text); letter-spacing: 0.5px; }
+        .logo span { color: var(--primary); }
+        .system-health { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; font-weight: 600; color: var(--text-muted); }
+        .health-light { width: 12px; height: 12px; background: #00ff00; border-radius: 50%; box-shadow: 0 0 10px #00ff00; animation: pulse 2s infinite; }
+        
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+        .nav-container { background: #fff; padding: 0.75rem 2rem; display: flex; gap: 0.5rem; border-bottom: 1px solid var(--border); }
+        .nav-btn { background: transparent; border: none; color: var(--text-muted); padding: 0.5rem 1rem; border-radius: var(--radius); cursor: pointer; font-weight: 500; transition: all 0.2s; }
+        .nav-btn:hover { color: var(--text); background: var(--surface-light); }
+        .nav-btn.active { background: var(--primary); color: #fff; }
+
+        /* Main Layout */
+        .main { max-width: 1200px; margin: 2rem auto; padding: 0 1.5rem; }
+        .view { display: none; animation: fadeIn 0.3s ease; }
+        .view.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Settings Page */
+        .settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
+        .settings-section { background: var(--surface-light); padding: 1.25rem; border-radius: var(--radius); }
+        .settings-section h3 { margin-bottom: 1rem; font-size: 1rem; font-weight: 600; color: var(--text); }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--text); }
+        .form-group input, .form-group select { width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.9rem; }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--primary); }
+        .help-text { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem; display: block; }
+        .btn-group { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+        /* Panels & Forms */
+        .panel { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: var(--shadow); }
+        .panel h2 { margin-bottom: 1rem; font-size: 1.1rem; color: var(--text); font-weight: 600; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; }
+        
+        .form-group { display: flex; gap: 1rem; margin-bottom: 1rem; align-items: center; flex-wrap: wrap; }
+        input, select { background: var(--surface-light); border: 1px solid var(--border); color: var(--text); padding: 0.75rem; border-radius: var(--radius); outline: none; flex: 1; min-width: 150px; }
+        input:focus, select:focus { border-color: var(--primary); }
+        optgroup { background: var(--surface); color: var(--primary); font-weight: bold; }
+        option { color: var(--text); }
+        
+        .btn { background: var(--surface-light); color: var(--text); border: 1px solid var(--border); padding: 0.75rem 1.5rem; border-radius: var(--radius); cursor: pointer; font-weight: 600; transition: 0.2s; white-space: nowrap; }
+        .btn:hover { background: #333; }
+        .btn-primary { background: var(--primary); border-color: var(--primary); }
+        .btn-primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
+        .btn-danger { background: transparent; color: #ff5252; border: 1px solid #ff5252; padding: 0.4rem 0.8rem; font-size: 0.85rem; }
+        .btn-danger:hover { background: #ff5252; color: #fff; }
+        .btn-secondary { background: transparent; color: #4dabf7; border: 1px solid #4dabf7; padding: 0.4rem 0.8rem; font-size: 0.85rem; }
+        .btn-secondary:hover { background: #4dabf7; color: #fff; }
+
+        /* Tables & Lists */
+        .table-container { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; text-align: left; margin-top: 1rem; }
+        th { padding: 1rem; border-bottom: 2px solid var(--border); color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; }
+        td { padding: 1rem; border-bottom: 1px solid var(--border); }
+        tr:hover td { background: var(--surface-light); }
+        
+        .category-tag { display: inline-block; background: var(--surface-light); padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-weight: 500; color: var(--text); border: 1px solid var(--border); }
+        .category-tag.meats { background: #ffebee; color: #c62828; border-color: #ffcdd2; }
+        .category-tag.breads { background: #fff3e0; color: #e65100; border-color: #ffe0b2; }
+        .category-tag.sauces { background: #e8f5e9; color: #2e7d32; border-color: #c8e6c9; }
+        .category-tag.drinks { background: #e3f2fd; color: #1565c0; border-color: #bbdefb; }
+        .category-tag.toppings { background: #f3e5f5; color: #7b1fa2; border-color: #e1bee7; }
+        .category-tag.sides { background: #fff8e1; color: #f57f17; border-color: #ffecb3; }
+        .category-tag.desserts { background: #fce4ec; color: #ad1457; border-color: #f48fb1; }
+
+        .money { font-family: monospace; font-size: 1.1rem; }
+        .good-margin { color: var(--success); font-weight: bold; }
+        .bad-margin { color: #ff5252; font-weight: bold; }
+
+        /* Volatility Widget (Disabled State) */
+        .volatility-widget { background: linear-gradient(145deg, #1a0f0f, #110505); border: 1px solid var(--primary-dark); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 2rem; opacity: 0.4; pointer-events: none; }
+        .volatility-widget label { display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 1rem; color: var(--text-muted); }
+        input[type="range"] { width: 100%; cursor: not-allowed; accent-color: var(--primary); filter: grayscale(100%); }
+        
+        .recipe-row { display: flex; gap: 1rem; margin-bottom: 0.5rem; background: var(--surface-light); padding: 1rem; border-radius: var(--radius); border: 1px dashed var(--border); }
+    </style>
+</head>
+<body>
+
+    <header class="header">
+        <div class="logo">🤖 AGENTIC LABS <span>| TRACKER</span></div>
+        <div class="system-health">
+            <div class="health-light"></div>
+            JARVIS ACTIVE 24/7
+        </div>
+    </header>
+
+    <div class="nav-container">
+        <button class="nav-btn active" data-target="view-dashboard">Dashboard</button>
+        <button class="nav-btn" data-target="view-ingredients">Ingredient Manager</button>
+        <button class="nav-btn" data-target="view-recipe" id="nav-recipe-btn">Recipe Builder</button>
+        <button class="nav-btn" data-target="view-settings">Settings</button>
+        <button class="nav-btn" style="margin-left: auto; border-color: #ff5252; color: #ff5252;" onclick="clearAllData()">Reset App Data</button>
+    </div>
+
+    <main class="main">
+        <div class="volatility-widget">
+            <label>
+                <span>Market Volatility Simulation (Disabled for Testing Phase)</span>
+                <span id="vol-label">100% (Baseline)</span>
+            </label>
+            <input type="range" id="vol-slider" min="50" max="200" value="100" step="5" disabled>
+        </div>
+
+        <div id="view-dashboard" class="view active">
+            <div class="panel">
+                <h2>Live Margin Intelligence</h2>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Menu Item</th>
+                                <th>Recipe Cost</th>
+                                <th>In-Store Price</th>
+                                <th>In-Store Margin</th>
+                                <th>Online Price (Uber/DD)</th>
+                                <th>Online Margin (Assumes 25% Fee)</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dashboard-table-body">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-ingredients" class="view">
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
+                
+                <!-- Base Ingredients (middle/left) -->
+                <div class="panel" style="border-left: 4px solid var(--primary);">
+                    <h2>Base Ingredients</h2>
+                    <div class="form-group" style="flex-wrap: wrap;">
+                        <input type="text" id="ing-name" placeholder="Ingredient Name (e.g., Chicken Wing)" style="flex: 1; min-width: 200px;">
+                        <select id="ing-category" style="min-width: 180px;">
+                            </select>
+                        <input type="number" id="ing-cost" placeholder="Base Cost ($)" step="0.01" min="0" style="width: 120px;">
+                        <button class="btn btn-primary" id="btn-add-ing">Add Ingredient</button>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>INGREDIENT</th>
+                                    <th>CATEGORY</th>
+                                    <th>BASE COST</th>
+                                    <th style="width: 100px;">ACTION</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ingredients-table-body">
+                                </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Ingredient Categories (right side) -->
+                <div class="panel" style="border-left: 4px solid var(--success);">
+                    <h2 style="color: var(--success);">Ingredient Categories</h2>
+                    
+                    <!-- Menu-style category list -->
+                    <div id="categories-menu-list" style="margin-bottom: 1rem; max-height: 300px; overflow-y: auto;">
+                        </div>
+                    
+                    <!-- Add category input -->
+                    <div style="border-top: 1px solid var(--border); padding-top: 1rem;">
+                        <input type="hidden" id="edit-cat-id">
+                        <div class="form-group" style="flex-direction: column; gap: 0.5rem;">
+                            <label style="font-size: 0.85rem; font-weight: 600;">Add New Category</label>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <input type="text" id="cat-name" placeholder="Category Name (e.g., Meats)" style="flex:1;">
+                                <button class="btn btn-primary" id="btn-save-cat" style="background: var(--success);">Add</button>
+                            </div>
+                            <button class="btn" id="btn-cancel-cat" style="display:none; font-size: 0.8rem;" onclick="cancelEditCategory()">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div id="view-recipe" class="view">
+            <div class="panel">
+                <h2 id="recipe-builder-title">Build New Menu Item</h2>
+                <div class="form-group" style="margin-bottom: 2rem;">
+                    <input type="text" id="menu-name" placeholder="Menu Item Name (e.g., 6pc Wing Combo)" style="font-size: 1.2rem; padding: 1rem;">
+                </div>
+                
+                <h3 style="margin-bottom: 1rem; color: var(--text-muted); font-size: 1rem;">Recipe Components</h3>
+                <div id="recipe-container">
+                    </div>
+                
+                <button class="btn" id="btn-add-recipe-row" style="margin-bottom: 2rem; width: 100%; border-style: dashed;">+ Add Ingredient to Recipe</button>
+
+                <h3 style="margin-bottom: 1rem; color: var(--text-muted); font-size: 1rem;">Pricing Strategy</h3>
+                <div class="form-group">
+                    <input type="number" id="menu-instore" placeholder="In-Store Price ($)" step="0.01" min="0">
+                    <input type="number" id="menu-online" placeholder="Online Price ($)" step="0.01" min="0">
+                </div>
+
+                <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                    <button class="btn btn-primary" id="btn-save-menu" style="flex: 2; padding: 1rem; font-size: 1.1rem;">Save & Activate Item</button>
+                    <button class="btn" id="btn-cancel-edit-menu" style="flex: 1; display:none;" onclick="cancelEditMenu()">Cancel Edit</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings View -->
+        <div id="view-settings" class="view">
+            <div class="panel">
+                <h2>Settings</h2>
+                <div class="settings-grid">
+                    <div class="settings-section">
+                        <h3>⚙️ General Settings</h3>
+                        <div class="form-group">
+                            <label>Default Commission %</label>
+                            <input type="number" id="default-commission" min="0" max="50" step="1" value="25">
+                            <span class="help-text">Default delivery platform fee</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Target Margin %</label>
+                            <input type="number" id="target-margin" min="0" max="100" step="1" value="65">
+                            <span class="help-text">Alert when below this margin</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Business Name</label>
+                            <input type="text" id="business-name" placeholder="Your Restaurant Name" value="Kennedy Fried Chicken">
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h3>🔔 Notifications</h3>
+                        <div class="form-group">
+                            <label>Low Margin Alert Threshold</label>
+                            <input type="number" id="margin-alert" min="0" max="100" step="5" value="20">
+                            <span class="help-text">Warn when profit margin drops below this %</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Auto-Save Interval</label>
+                            <select id="autosave-interval">
+                                <option value="30000">Every 30 seconds</option>
+                                <option value="60000" selected>Every minute</option>
+                                <option value="120000">Every 2 minutes</option>
+                                <option value="0">Manual only</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h3>💾 Data Management</h3>
+                        <div class="form-group btn-group">
+                            <button class="btn btn-secondary" onclick="exportData()">Export Data</button>
+                            <button class="btn btn-secondary" onclick="document.getElementById('import-file').click()">Import Data</button>
+                            <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(this)">
+                        </div>
+                        <div class="form-group" style="margin-top: 1rem;">
+                            <button class="btn btn-danger" onclick="confirmClearAllData()">Clear All Data</button>
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top: 1.5rem; text-align: right;">
+                    <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // --- 1. State Management with LocalStorage ---
+        const STORAGE_KEY = 'agentic_labs_v2';
+        
+        const defaultState = {
+            volatility: 1.0,
+            categories: [
+                { id: 'cat_1', name: 'Meats & Proteins' },
+                { id: 'cat_2', name: 'Breads & Buns' },
+                { id: 'cat_3', name: 'Sauces & Oils' }
+            ],
+            ingredients: [
+                { id: 'ing_1', name: 'Sample: Chicken Wing', baseCost: 0.25, categoryId: 'cat_1' },
+                { id: 'ing_2', name: 'Sample: Cooking Oil (oz)', baseCost: 0.10, categoryId: 'cat_3' }
+            ],
+            menuItems: []
+        };
+
+        let appState = JSON.parse(localStorage.getItem(STORAGE_KEY)) || defaultState;
+        let currentEditingMenuId = null; // Tracks if we are editing a menu item
+
+        function saveState() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+        }
+
+        function clearAllData() {
+            if(confirm("Are you sure you want to delete all testing data and start fresh?")) {
+                localStorage.removeItem(STORAGE_KEY);
+                location.reload();
+            }
+        }
+
+        // --- 2. View Routing Logic ---
+        function switchView(targetId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById(targetId).classList.add('active');
+            
+            document.querySelectorAll('.nav-btn').forEach(b => {
+                b.classList.remove('active');
+                if (b.getAttribute('data-target') === targetId) {
+                    b.classList.add('active');
+                }
+            });
+            renderAll(); 
+        }
+
+        document.querySelectorAll('.nav-btn[data-target]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                // If they click away from Recipe Builder, cancel any active edit
+                if (e.target.getAttribute('data-target') !== 'view-recipe') {
+                    cancelEditMenu();
+                }
+                switchView(e.target.getAttribute('data-target'));
+            });
+        });
+
+        // --- 3. Category Manager Logic ---
+        document.getElementById('btn-save-cat').addEventListener('click', () => {
+            const nameInput = document.getElementById('cat-name');
+            const idInput = document.getElementById('edit-cat-id');
+            const name = nameInput.value.trim();
+            
+            if (!name) { alert("Please enter a category name."); return; }
+
+            if (idInput.value) {
+                // Update
+                const cat = appState.categories.find(c => c.id === idInput.value);
+                if (cat) cat.name = name;
+            } else {
+                // Add
+                appState.categories.push({ id: 'cat_' + Date.now(), name: name });
+            }
+
+            nameInput.value = '';
+            idInput.value = '';
+            document.getElementById('btn-save-cat').textContent = "Add / Update Category";
+            document.getElementById('btn-cancel-cat').style.display = 'none';
+            saveState();
+            renderAll();
+        });
+
+        window.editCategory = (id) => {
+            const cat = appState.categories.find(c => c.id === id);
+            if (cat) {
+                document.getElementById('cat-name').value = cat.name;
+                document.getElementById('edit-cat-id').value = cat.id;
+                document.getElementById('btn-save-cat').textContent = "Update Category";
+                document.getElementById('btn-cancel-cat').style.display = 'inline-block';
+            }
+        };
+
+        window.cancelEditCategory = () => {
+            document.getElementById('cat-name').value = '';
+            document.getElementById('edit-cat-id').value = '';
+            document.getElementById('btn-save-cat').textContent = "Add / Update Category";
+            document.getElementById('btn-cancel-cat').style.display = 'none';
+        };
+
+        window.deleteCategory = (id) => {
+            if(confirm("Delete this category? Ingredients in this category will be marked as 'Uncategorized'.")) {
+                appState.categories = appState.categories.filter(c => c.id !== id);
+                appState.ingredients.forEach(ing => {
+                    if(ing.categoryId === id) ing.categoryId = null;
+                });
+                saveState();
+                renderAll();
+            }
+        };
+
+        // --- 4. Ingredient Manager Logic ---
+        document.getElementById('btn-add-ing').addEventListener('click', () => {
+            const name = document.getElementById('ing-name').value;
+            const cost = document.getElementById('ing-cost').value;
+            const catId = document.getElementById('ing-category').value;
+            
+            if (!name || !cost) { alert("Please provide both an ingredient name and base cost."); return; }
+
+            appState.ingredients.push({
+                id: 'ing_' + Date.now(),
+                name: name,
+                baseCost: parseFloat(cost),
+                categoryId: catId || null
+            });
+
+            document.getElementById('ing-name').value = '';
+            document.getElementById('ing-cost').value = '';
+            saveState();
+            renderAll();
+        });
+
+        window.deleteIngredient = (id) => {
+            appState.ingredients = appState.ingredients.filter(ing => ing.id !== id);
+            appState.menuItems.forEach(item => {
+                item.recipe = item.recipe.filter(r => r.ingId !== id);
+            });
+            saveState();
+            renderAll();
+        };
+
+        // --- 5. Recipe Builder Logic ---
+        const recipeContainer = document.getElementById('recipe-container');
+
+        // Helper function to build the grouped dropdown HTML
+        function getGroupedIngredientOptions(selectedId = null) {
+            let html = `<option value="" disabled ${!selectedId ? 'selected' : ''}>Select Ingredient...</option>`;
+            
+            // Group ingredients by category
+            const grouped = {};
+            appState.categories.forEach(cat => grouped[cat.id] = { name: cat.name, items: [] });
+            grouped['uncategorized'] = { name: 'Uncategorized', items: [] };
+
+            appState.ingredients.forEach(ing => {
+                if (ing.categoryId && grouped[ing.categoryId]) {
+                    grouped[ing.categoryId].items.push(ing);
+                } else {
+                    grouped['uncategorized'].items.push(ing);
+                }
+            });
+
+            // Build optgroups
+            for (const key in grouped) {
+                if (grouped[key].items.length > 0) {
+                    html += `<optgroup label="${grouped[key].name}">`;
+                    grouped[key].items.forEach(ing => {
+                        const isSelected = ing.id === selectedId ? 'selected' : '';
+                        html += `<option value="${ing.id}" ${isSelected}>${ing.name} ($${ing.baseCost.toFixed(2)})</option>`;
+                    });
+                    html += `</optgroup>`;
+                }
+            }
+            return html;
+        }
+        
+        window.addRecipeRow = (selectedIngId = null, qty = '') => {
+            if (appState.ingredients.length === 0) {
+                alert("Please add at least one ingredient in the Ingredient Manager first.");
+                return;
+            }
+
+            const row = document.createElement('div');
+            row.className = 'recipe-row';
+            row.innerHTML = `
+                <select class="recipe-ing-select">${getGroupedIngredientOptions(selectedIngId)}</select>
+                <input type="number" class="recipe-qty-input" placeholder="Quantity" min="0.1" step="0.1" value="${qty}">
+                <button class="btn btn-danger" onclick="this.parentElement.remove()">X</button>
+            `;
+            recipeContainer.appendChild(row);
+        };
+
+        document.getElementById('btn-add-recipe-row').addEventListener('click', () => addRecipeRow());
+
+        document.getElementById('btn-save-menu').addEventListener('click', () => {
+            const name = document.getElementById('menu-name').value;
+            const inStore = document.getElementById('menu-instore').value;
+            const online = document.getElementById('menu-online').value;
+            
+            if (!name || !inStore || !online) { alert("Please fill out the menu name and both prices."); return; }
+
+            const recipeRows = document.querySelectorAll('.recipe-row');
+            let newRecipe = [];
+            
+            recipeRows.forEach(row => {
+                const ingId = row.querySelector('.recipe-ing-select').value;
+                const qty = row.querySelector('.recipe-qty-input').value;
+                if (ingId && qty && parseFloat(qty) > 0) {
+                    newRecipe.push({ ingId: ingId, qty: parseFloat(qty) });
+                }
+            });
+
+            if (newRecipe.length === 0) { alert("Please add at least one ingredient with a quantity."); return; }
+
+            if (currentEditingMenuId) {
+                // Update existing
+                const item = appState.menuItems.find(m => m.id === currentEditingMenuId);
+                if(item) {
+                    item.name = name;
+                    item.inStorePrice = parseFloat(inStore);
+                    item.onlinePrice = parseFloat(online);
+                    item.recipe = newRecipe;
+                }
+            } else {
+                // Add new
+                appState.menuItems.push({
+                    id: 'menu_' + Date.now(),
+                    name: name,
+                    inStorePrice: parseFloat(inStore),
+                    onlinePrice: parseFloat(online),
+                    recipe: newRecipe
+                });
+            }
+
+            saveState();
+            cancelEditMenu(); // Reset form state
+            switchView('view-dashboard');
+        });
+
+        // Edit Menu Item Logic
+        window.editMenuItem = (id) => {
+            const item = appState.menuItems.find(m => m.id === id);
+            if (!item) return;
+
+            currentEditingMenuId = id;
+            
+            // Update UI to reflect Edit Mode
+            document.getElementById('recipe-builder-title').textContent = "Edit Menu Item";
+            document.getElementById('btn-save-menu').textContent = "Update & Activate Item";
+            document.getElementById('btn-cancel-edit-menu').style.display = "inline-block";
+            document.getElementById('nav-recipe-btn').textContent = "Edit Recipe";
+
+            // Populate Form
+            document.getElementById('menu-name').value = item.name;
+            document.getElementById('menu-instore').value = item.inStorePrice;
+            document.getElementById('menu-online').value = item.onlinePrice;
+            
+            // Populate Recipe Rows
+            recipeContainer.innerHTML = '';
+            item.recipe.forEach(r => addRecipeRow(r.ingId, r.qty));
+
+            switchView('view-recipe');
+        };
+
+        window.cancelEditMenu = () => {
+            currentEditingMenuId = null;
+            document.getElementById('recipe-builder-title').textContent = "Build New Menu Item";
+            document.getElementById('btn-save-menu').textContent = "Save & Activate Item";
+            document.getElementById('btn-cancel-edit-menu').style.display = "none";
+            document.getElementById('nav-recipe-btn').textContent = "Recipe Builder";
+            
+            document.getElementById('menu-name').value = '';
+            document.getElementById('menu-instore').value = '';
+            document.getElementById('menu-online').value = '';
+            recipeContainer.innerHTML = '';
+        };
+
+        window.deleteMenuItem = (id) => {
+            if(confirm("Delete this menu item?")) {
+                appState.menuItems = appState.menuItems.filter(m => m.id !== id);
+                saveState();
+                renderAll();
+            }
+        };
+
+        // --- 6. Math & Rendering Engine ---
+        function calculateRecipeCost(recipeArray) {
+            return recipeArray.reduce((total, item) => {
+                const ing = appState.ingredients.find(i => i.id === item.ingId);
+                if (ing) {
+                    const scaledCost = ing.baseCost * appState.volatility;
+                    return total + (scaledCost * item.qty);
+                }
+                return total;
+            }, 0);
+        }
+
+        function renderAll() {
+            renderCategories();
+            renderIngredients();
+            renderDashboard();
+            updateIngredientDropdown();
+        }
+
+        function renderCategories() {
+            const container = document.getElementById('categories-menu-list');
+            if (!container) return;
+            
+            container.innerHTML = '';
+            if (appState.categories.length === 0) {
+                container.innerHTML = '<p style="color: var(--text-muted); font-size: 0.9rem; text-align: center;">No categories yet. Add one below!</p>';
+                return;
+            }
+            
+            appState.categories.forEach(cat => {
+                container.innerHTML += `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.75rem; background: var(--surface-light); border-radius: 6px; margin-bottom: 0.5rem; border: 1px solid var(--border);">
+                        <span style="font-weight: 500;">${cat.name}</span>
+                        <div style="display: flex; gap: 0.4rem;">
+                            <button class="btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" onclick="editCategory('${cat.id}')">✎ Edit</button>
+                            <button class="btn-danger" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" onclick="deleteCategory('${cat.id}')">✕</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function updateIngredientDropdown() {
+            const select = document.getElementById('ing-category');
+            if(select) {
+                select.innerHTML = '<option value="">No Category (Uncategorized)</option>' + 
+                    appState.categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+            }
+        }
+
+        function renderIngredients() {
+            const tbody = document.getElementById('ingredients-table-body');
+            tbody.innerHTML = '';
+            
+            if (appState.ingredients.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">No ingredients added yet.</td></tr>`;
+                return;
+            }
+
+            appState.ingredients.forEach(ing => {
+                const cat = appState.categories.find(c => c.id === ing.categoryId);
+                const catName = cat ? cat.name : 'Uncategorized';
+                // Generate color class based on category name
+                const catClass = catName.toLowerCase().includes('meat') ? 'meats' : 
+                               catName.toLowerCase().includes('bread') ? 'breads' :
+                               catName.toLowerCase().includes('sauce') ? 'sauces' :
+                               catName.toLowerCase().includes('drink') ? 'drinks' :
+                               catName.toLowerCase().includes('topping') ? 'toppings' :
+                               catName.toLowerCase().includes('side') ? 'sides' :
+                               catName.toLowerCase().includes('dessert') ? 'desserts' : '';
+                
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${ing.name}</strong></td>
+                        <td><span class="category-tag ${catClass}">${catName}</span></td>
+                        <td class="money">$${ing.baseCost.toFixed(2)}</td>
+                        <td><button class="btn-danger" onclick="deleteIngredient('${ing.id}')">Delete</button></td>
+                    </tr>
+                `;
+            });
+        }
+
+        function renderDashboard() {
+            const tbody = document.getElementById('dashboard-table-body');
+            tbody.innerHTML = '';
+
+            if (appState.menuItems.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">No menu items built yet. Use the Recipe Builder to start.</td></tr>`;
+                return;
+            }
+
+            appState.menuItems.forEach(menu => {
+                const cost = calculateRecipeCost(menu.recipe);
+                
+                const inStoreProfit = menu.inStorePrice - cost;
+                const inStoreMargin = (menu.inStorePrice > 0) ? (inStoreProfit / menu.inStorePrice) * 100 : 0;
+                const isMarginClass = inStoreMargin >= 65 ? 'good-margin' : 'bad-margin';
+
+                const onlineNet = menu.onlinePrice * 0.75;
+                const onlineProfit = onlineNet - cost;
+                const onlineMargin = (onlineNet > 0) ? (onlineProfit / onlineNet) * 100 : 0;
+                const onMarginClass = onlineMargin >= 65 ? 'good-margin' : 'bad-margin';
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${menu.name}</strong></td>
+                        <td class="money" style="color: var(--primary);">$${cost.toFixed(2)}</td>
+                        <td class="money">$${menu.inStorePrice.toFixed(2)}</td>
+                        <td class="${isMarginClass}">${inStoreMargin.toFixed(1)}%</td>
+                        <td class="money">$${menu.onlinePrice.toFixed(2)}</td>
+                        <td class="${onMarginClass}">${onlineMargin.toFixed(1)}%</td>
+                        <td>
+                            <button class="btn-secondary" onclick="editMenuItem('${menu.id}')">Edit</button>
+                            <button class="btn-danger" onclick="deleteMenuItem('${menu.id}')">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        // --- 7. Initial Boot ---
+        renderAll();
+
+        // --- 8. Settings Functions ---
+        function saveSettings() {
+            const settings = {
+                defaultCommission: parseInt(document.getElementById('default-commission').value),
+                targetMargin: parseInt(document.getElementById('target-margin').value),
+                businessName: document.getElementById('business-name').value,
+                marginAlert: parseInt(document.getElementById('margin-alert').value),
+                autosaveInterval: parseInt(document.getElementById('autosave-interval').value)
+            };
+            localStorage.setItem('agentic-settings', JSON.stringify(settings));
+            alert('Settings saved successfully!');
+        }
+
+        function loadSettings() {
+            const saved = localStorage.getItem('agentic-settings');
+            if (saved) {
+                const settings = JSON.parse(saved);
+                document.getElementById('default-commission').value = settings.defaultCommission || 25;
+                document.getElementById('target-margin').value = settings.targetMargin || 65;
+                document.getElementById('business-name').value = settings.businessName || 'Kennedy Fried Chicken';
+                document.getElementById('margin-alert').value = settings.marginAlert || 20;
+                document.getElementById('autosave-interval').value = settings.autosaveInterval || 60000;
+            }
+        }
+
+        function exportData() {
+            const data = { ingredients, menuItems, settings: JSON.parse(localStorage.getItem('agentic-settings') || '{}') };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'agentic-tracker-backup.json';
+            a.click();
+        }
+
+        function importData(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.ingredients) ingredients = data.ingredients;
+                    if (data.menuItems) menuItems = data.menuItems;
+                    renderAll();
+                    alert('Data imported successfully!');
+                } catch (err) {
+                    alert('Error importing data: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function confirmClearAllData() {
+            if (confirm('Are you sure you want to delete ALL data? This cannot be undone!')) {
+                localStorage.clear();
+                ingredients = [];
+                menuItems = [];
+                renderAll();
+                alert('All data cleared.');
+            }
+        }
+
+        // Load settings on startup
+        loadSettings();
+
+    </script>
+</body>
+</html>
