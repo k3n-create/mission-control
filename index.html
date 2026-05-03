@@ -160,13 +160,31 @@
  async function pushTruth(task) {
  manualLock = true;
  try {
- if (task && supabaseClient) {
+ // Only write directly to Supabase if it's an existing task (has a dash in ID)
+ const isRealId = task.id.includes('-');
+ 
+ if (isRealId && supabaseClient) {
  await supabaseClient.from('tasks').upsert({
  id: task.id, content: task.task_name, assigned_agent: task.assignedTo,
  status: task.column, description: task.description, tags: task.tags
  });
  }
- fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tasks: tasks.map(t => ({ ...t, content: t.task_name, assigned_agent: t.assignedTo, status: t.column })), columns: DEFAULT_COLUMNS }) }).catch(() => {});
+ 
+ // Always notify the API. The API will handle creating new tasks with real IDs.
+ const res = await fetch('/api/tasks', { 
+ method: 'POST', 
+ headers: { 'Content-Type': 'application/json' }, 
+ body: JSON.stringify({ 
+ tasks: tasks.map(t => ({ ...t, content: t.task_name, assigned_agent: t.assignedTo, status: t.column })), 
+ columns: DEFAULT_COLUMNS 
+ }) 
+ });
+ 
+ // If it was a new task, refresh to get the real ID from the backend
+ if (!isRealId && res.ok) {
+ await fetchLatest();
+ }
+ 
  setTimeout(() => manualLock = false, 3000);
  } catch (e) { manualLock = false; throw e; }
  }
