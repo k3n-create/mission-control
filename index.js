@@ -169,6 +169,29 @@ app.post('/api/tasks', async (req, res) => {
  }
 });
 
+// DELETE /api/tasks/:id
+app.delete('/api/tasks/:id', async (req, res) => {
+ try {
+ const { id } = req.params;
+ 
+ if (!id) {
+   return res.status(400).json({ error: 'Task ID required' });
+ }
+ 
+ const { error } = await supabase
+   .from('tasks')
+   .delete()
+   .eq('id', id);
+ 
+ if (error) throw error;
+ 
+ res.status(200).json({ success: true, message: 'Task deleted' });
+ } catch (error) {
+ console.error('Error:', error);
+ res.status(500).json({ error: error.message });
+ }
+});
+
 // Global error handler - auto-create task on 500 errors
 app.use((err, req, res, next) => {
   console.error('Error:', err);
