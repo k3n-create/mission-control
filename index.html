@@ -120,15 +120,19 @@
  }
 
  async function fetchLatest() {
- const { data, error } = await supabaseClient.from('tasks').select('*');
- if (error) throw error;
- if (data) {
- tasks = data.map(t => ({
- id: t.id.toString(), column: (t.status || 'todo').toLowerCase(),
- assignedTo: t.assigned_agent || '', task_name: t.content || 'Untitled',
- description: t.description || '', tags: t.tags || []
- }));
+ try {
+ const response = await fetch('/api/tasks');
+ const data = await response.json();
+ 
+ let flattenedTasks = [];
+ Object.keys(data).forEach(column => {
+ flattenedTasks = [...flattenedTasks, ...data[column]];
+ });
+
+ tasks = flattenedTasks;
  renderBoard();
+ } catch (e) {
+ console.error("Fetch Failure:", e);
  }
  }
 
@@ -160,33 +164,30 @@
  async function pushTruth(task) {
  manualLock = true;
  try {
- // Only write directly to Supabase if it's an existing task (has a dash in ID)
- const isRealId = task.id.includes('-');
- 
- if (isRealId && supabaseClient) {
- await supabaseClient.from('tasks').upsert({
- id: task.id, content: task.task_name, assigned_agent: task.assignedTo,
- status: task.column, description: task.description, tags: task.tags
- });
- }
- 
- // Always notify the API. The API will handle creating new tasks with real IDs.
+ // EXCLUSIVE API HANDOFF: 
+ // We let the API handle client_id tagging and UUID generation for new tasks.
  const res = await fetch('/api/tasks', { 
  method: 'POST', 
  headers: { 'Content-Type': 'application/json' }, 
  body: JSON.stringify({ 
- tasks: tasks.map(t => ({ ...t, content: t.task_name, assigned_agent: t.assignedTo, status: t.column })), 
- columns: DEFAULT_COLUMNS 
+ tasks: tasks.map(t => ({ 
+ ...t, 
+ content: t.task_name, 
+ assigned_agent: t.assignedTo, 
+ status: t.column 
+ })) 
  }) 
  });
  
- // If it was a new task, refresh to get the real ID from the backend
- if (!isRealId && res.ok) {
+ if (res.ok) {
  await fetchLatest();
  }
  
  setTimeout(() => manualLock = false, 3000);
- } catch (e) { manualLock = false; throw e; }
+ } catch (e) { 
+ manualLock = false; 
+ console.error("API Sync Failure:", e);
+ }
  }
 
  function openEditModal(id) {
@@ -220,9 +221,12 @@
  async function deleteTask() {
  const id = document.getElementById('editTaskId').value;
  if (confirm("TERMINATE MISSION?")) {
- if (supabaseClient) await supabaseClient.from('tasks').delete().eq('id', id);
+ try {
+ await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
  tasks = tasks.filter(t => t.id !== id);
- renderBoard(); closeEditModal();
+ renderBoard(); 
+ closeEditModal();
+ } catch (e) { console.error("Deletion Failure:", e); }
  }
  }
 
