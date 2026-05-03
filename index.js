@@ -10,24 +10,25 @@ const PORT = process.env.PORT || 8080;
 app.use(cors());
 app.use(express.json());
 
+// GLOBAL SCOPE MAPS
 const statusMap = { 'INBOX': 'todo', 'ASSIGNED': 'assigned', 'IN PROGRESS': 'in_progress', 'REVIEW': 'review', 'DONE': 'done' };
 const reverseStatusMap = { 'todo': 'INBOX', 'assigned': 'ASSIGNED', 'in_progress': 'IN PROGRESS', 'review': 'REVIEW', 'done': 'DONE' };
 
 const mapStatus = (s) => statusMap[s?.toUpperCase()] || s?.toLowerCase() || 'todo';
 const reverseMapStatus = (s) => reverseStatusMap[s] || s?.toUpperCase() || 'INBOX';
 
-// Root route - serve index.html
+// --- CRITICAL FIX: Serve static HTML dashboard ---
 app.get('/', async (req, res) => {
  try {
  const html = await readFile('./index.html', 'utf-8');
  res.set('Content-Type', 'text/html');
  res.send(html);
  } catch (err) {
- res.status(500).send('Dashboard not found');
+ res.status(500).send('Dashboard file (index.html) not found in root directory');
  }
 });
 
-// GET /api/tasks - REMOVED CLIENT_ID FILTER
+// GET /api/tasks - Prototype Mode (No client_id filter)
 app.get('/api/tasks', async (req, res) => {
  try {
  const { data, error } = await supabase
@@ -56,7 +57,7 @@ app.get('/api/tasks', async (req, res) => {
  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// POST /api/tasks - UPDATED FOR STABILITY
+// POST /api/tasks - Partial updates, UUID safe
 app.post('/api/tasks', async (req, res) => {
  try {
  const { tasks } = req.body;
@@ -80,7 +81,7 @@ app.post('/api/tasks', async (req, res) => {
  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// DELETE /api/tasks/:id - ADDED AS REQUESTED
+// DELETE /api/tasks/:id
 app.delete('/api/tasks/:id', async (req, res) => {
  try {
  await supabase.from('tasks').delete().eq('id', req.params.id);
