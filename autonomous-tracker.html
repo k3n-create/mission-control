@@ -151,9 +151,28 @@
         </div>
 
         <div id="view-ingredients" class="view">
-            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
+            <div style="display: grid; grid-template-columns: 300px 1fr; gap: 1.5rem; align-items: start;">
                 
-                <!-- Base Ingredients (middle/left) -->
+                <div class="panel" style="border-left: 4px solid var(--success);">
+                    <h2 style="color: var(--success);">Ingredient Categories</h2>
+                    
+                    <div id="categories-menu-list" style="margin-bottom: 1rem; max-height: 300px; overflow-y: auto;">
+                        </div>
+                    
+                    <div style="border-top: 1px solid var(--border); padding-top: 1rem;">
+                        <input type="hidden" id="edit-cat-id">
+                    <input type="hidden" id="edit-ing-id">
+                        <div class="form-group" style="flex-direction: column; gap: 0.5rem;">
+                            <label style="font-size: 0.85rem; font-weight: 600;">Add New Category</label>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <input type="text" id="cat-name" placeholder="Category Name (e.g., Meats)" style="flex:1;">
+                                <button class="btn btn-primary" id="btn-save-cat" style="background: var(--success);">Add</button>
+                            </div>
+                            <button class="btn" id="btn-cancel-cat" style="display:none; font-size: 0.8rem;" onclick="cancelEditCategory()">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="panel" style="border-left: 4px solid var(--primary);">
                     <h2>Base Ingredients</h2>
                     <div class="form-group" style="flex-wrap: wrap;">
@@ -170,34 +189,12 @@
                                     <th>INGREDIENT</th>
                                     <th>CATEGORY</th>
                                     <th>BASE COST</th>
-                                    <th style="width: 100px;">ACTION</th>
+                                    <th style="width: 140px;">ACTIONS</th>
                                 </tr>
                             </thead>
                             <tbody id="ingredients-table-body">
                                 </tbody>
                         </table>
-                    </div>
-                </div>
-
-                <!-- Ingredient Categories (right side) -->
-                <div class="panel" style="border-left: 4px solid var(--success);">
-                    <h2 style="color: var(--success);">Ingredient Categories</h2>
-                    
-                    <!-- Menu-style category list -->
-                    <div id="categories-menu-list" style="margin-bottom: 1rem; max-height: 300px; overflow-y: auto;">
-                        </div>
-                    
-                    <!-- Add category input -->
-                    <div style="border-top: 1px solid var(--border); padding-top: 1rem;">
-                        <input type="hidden" id="edit-cat-id">
-                        <div class="form-group" style="flex-direction: column; gap: 0.5rem;">
-                            <label style="font-size: 0.85rem; font-weight: 600;">Add New Category</label>
-                            <div style="display: flex; gap: 0.5rem;">
-                                <input type="text" id="cat-name" placeholder="Category Name (e.g., Meats)" style="flex:1;">
-                                <button class="btn btn-primary" id="btn-save-cat" style="background: var(--success);">Add</button>
-                            </div>
-                            <button class="btn" id="btn-cancel-cat" style="display:none; font-size: 0.8rem;" onclick="cancelEditCategory()">Cancel</button>
-                        </div>
                     </div>
                 </div>
 
@@ -230,7 +227,6 @@
             </div>
         </div>
 
-        <!-- Settings View -->
         <div id="view-settings" class="view">
             <div class="panel">
                 <h2>Settings</h2>
@@ -417,6 +413,43 @@
             saveState();
             renderAll();
         });
+
+        window.editIngredient = (id) => {
+            const ing = appState.ingredients.find(i => i.id === id);
+            if (!ing) return;
+            
+            document.getElementById('edit-ing-id').value = ing.id;
+            document.getElementById('ing-name').value = ing.name;
+            document.getElementById('ing-cost').value = ing.baseCost;
+            document.getElementById('ing-category').value = ing.categoryId;
+            
+            document.getElementById('btn-add-ing').textContent = 'Update Ingredient';
+            document.getElementById('btn-add-ing').onclick = () => updateIngredient(ing.id);
+            
+            document.getElementById('ing-name').focus();
+        };
+
+        window.updateIngredient = (id) => {
+            const name = document.getElementById('ing-name').value.trim();
+            const cost = parseFloat(document.getElementById('ing-cost').value) || 0;
+            const categoryId = document.getElementById('ing-category').value;
+            
+            if (!name) return alert('Please enter ingredient name');
+            
+            const idx = appState.ingredients.findIndex(i => i.id === id);
+            if (idx !== -1) {
+                appState.ingredients[idx] = { ...appState.ingredients[idx], name, baseCost: cost, categoryId };
+                saveState();
+                renderAll();
+            }
+            
+            // Reset form
+            document.getElementById('ing-name').value = '';
+            document.getElementById('ing-cost').value = '';
+            document.getElementById('ing-category').value = '';
+            document.getElementById('btn-add-ing').textContent = 'Add Ingredient';
+            document.getElementById('btn-add-ing').onclick = addIngredient;
+        };
 
         window.deleteIngredient = (id) => {
             appState.ingredients = appState.ingredients.filter(ing => ing.id !== id);
@@ -646,7 +679,10 @@
                         <td><strong>${ing.name}</strong></td>
                         <td><span class="category-tag ${catClass}">${catName}</span></td>
                         <td class="money">$${ing.baseCost.toFixed(2)}</td>
-                        <td><button class="btn-danger" onclick="deleteIngredient('${ing.id}')">Delete</button></td>
+                        <td style="display:flex; gap:0.4rem;">
+                            <button class="btn-secondary" style="padding:0.3rem 0.6rem; font-size:0.75rem;" onclick="editIngredient('${ing.id}')">✎ Edit</button>
+                            <button class="btn-danger" style="padding:0.3rem 0.6rem; font-size:0.75rem;" onclick="deleteIngredient('${ing.id}')">✕</button>
+                        </td>
                     </tr>
                 `;
             });
@@ -719,7 +755,7 @@
         }
 
         function exportData() {
-            const data = { ingredients, menuItems, settings: JSON.parse(localStorage.getItem('agentic-settings') || '{}') };
+            const data = { ingredients: appState.ingredients, menuItems: appState.menuItems, settings: JSON.parse(localStorage.getItem('agentic-settings') || '{}') };
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -735,8 +771,8 @@
             reader.onload = function(e) {
                 try {
                     const data = JSON.parse(e.target.result);
-                    if (data.ingredients) ingredients = data.ingredients;
-                    if (data.menuItems) menuItems = data.menuItems;
+                    if (data.ingredients) appState.ingredients = data.ingredients;
+                    if (data.menuItems) appState.menuItems = data.menuItems;
                     renderAll();
                     alert('Data imported successfully!');
                 } catch (err) {
@@ -749,8 +785,8 @@
         function confirmClearAllData() {
             if (confirm('Are you sure you want to delete ALL data? This cannot be undone!')) {
                 localStorage.clear();
-                ingredients = [];
-                menuItems = [];
+                appState.ingredients = [];
+                appState.menuItems = [];
                 renderAll();
                 alert('All data cleared.');
             }
