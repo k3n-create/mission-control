@@ -11,8 +11,31 @@
  .glass { background: rgba(15, 15, 17, 0.90); border: 1px solid rgba(255, 255, 255, 0.08); padding: 1rem; }
  .card { background: rgba(30, 30, 35, 1); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 0.5rem; transition: transform 0.2s; cursor: pointer; padding: 1rem; margin-bottom: 0.75rem; }
  .card:hover { transform: translateY(-2px); border-color: rgba(6, 182, 212, 0.5); }
- .columns-container { display: flex; gap: 1.25rem; overflow-x: auto; height: calc(100vh - 100px); padding: 1.5rem; align-items: flex-start; }
- .column { flex: 1; min-width: 280px; display: flex; flex-direction: column; height: auto; }
+ /* Change 1: Ensure the board allows for horizontal scrolling if needed */
+.columns-container {
+ display: flex;
+ gap: 1.25rem;
+ overflow-x: auto;
+ align-items: flex-start; /* CRITICAL: Prevents columns from stretching to the same height */
+ padding: 1.5rem;
+ min-height: calc(100vh - 100px); 
+}
+
+/* Change 2: Make columns wrap their content */
+.column {
+ flex: 0 0 300px; /* Fixed width, won't shrink */
+ min-width: 300px;
+ display: flex;
+ flex-direction: column;
+ height: auto; /* Allow it to grow */
+ max-height: none; /* Remove any previous restrictions */
+}
+
+/* Change 3: Optional - if you want scrolling WITHIN columns instead of the whole page growing */
+.column-body {
+ flex: 1;
+ overflow-y: visible; /* Let tiles push the column down */
+}
  .tag-pill { background: rgba(255, 255, 255, 0.1); color: #94a3b8; font-size: 0.65rem; padding: 0.15rem 0.4rem; border-radius: 4px; margin-right: 4px; }
  .agent-badge { background: rgba(6, 182, 212, 0.15); color: #22d3ee; border: 1px solid rgba(6, 182, 212, 0.3); font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 0.25rem; text-transform: uppercase; margin-bottom: 8px; display: inline-block; }
  .modal-backdrop { background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(8px); position: fixed; inset: 0; z-index: 50; display: none; align-items: center; justify-content: center; }
@@ -67,7 +90,7 @@
  <span class="text-[10px] font-bold tracking-widest text-cyan-500 uppercase">${COL_LABELS[col]}</span>
  <button onclick="createNewTask('${col}')" class="text-gray-400 hover:text-white font-bold">+</button>
  </div>
- <div class="flex-1 min-h-[300px]" id="col-${col}" ondragover="event.preventDefault()" ondrop="drop(event)">
+ <div class="column-body flex-1 min-h-[300px]" id="col-${col}" ondragover="event.preventDefault()" ondrop="drop(event)">
  ${tasks.filter(t => statusMap[t.status?.toUpperCase()] === col).map(t => `
  <div class="card" draggable="true" ondragstart="drag(event)" data-id="${t.id}" onclick="openEditModal('${t.id}')">
  ${t.assigned_agent ? `<span class="agent-badge">${t.assigned_agent}</span>` : ''}
