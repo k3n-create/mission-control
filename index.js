@@ -18,7 +18,7 @@ app.get('/', async (req, res) => {
  } catch (err) { res.status(500).send('index.html not found'); }
 });
 
-// GET /api/tasks: Returns tasks organized by column for the dashboard
+// GET /api/tasks: Returns raw array of tasks for this client
 app.get('/api/tasks', async (req, res) => {
  try {
  const { data, error } = await supabase.from('tasks').select('*').eq('client_id', TEST_ID).order('created_at', { ascending: true });
@@ -33,9 +33,8 @@ app.post('/api/tasks', async (req, res) => {
  const { tasks } = req.body;
  if (!tasks) return res.status(400).send('No tasks provided');
 
- // Clean tasks for DB: Ensure they have the correct client_id and valid UUIDs
  const dbTasks = tasks.map(t => ({
- id: t.id.includes('-') ? t.id : undefined, // Let Supabase generate ID if it's a fake timestamp
+ id: (t.id && t.id.includes('-')) ? t.id : undefined, // Keep real UUIDs, let DB make new ones for timestamps
  client_id: TEST_ID,
  content: t.content || 'New Objective',
  status: (t.status || 'INBOX').toUpperCase(),
@@ -44,9 +43,9 @@ app.post('/api/tasks', async (req, res) => {
  assigned_agent: t.assigned_agent || ''
  }));
 
- const { data, error } = await supabase.from('tasks').upsert(dbTasks, { onConflict: 'id' }).select();
+ const { error } = await supabase.from('tasks').upsert(dbTasks, { onConflict: 'id' });
  if (error) throw error;
- res.status(200).json({ success: true, data });
+ res.status(200).json({ success: true });
  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
