@@ -162,43 +162,25 @@
       try {
         const isRealId = task && task.id && task.id.includes('-');
         
-        if (isRealId) {
-          // Real UUID - direct Supabase upsert
-          const { error } = await supabaseClient.from('tasks').upsert({
-            id: task.id,
-            content: task.task_name,
-            assigned_agent: task.assignedTo,
-            status: task.column,
-            description: task.description || '',
-            tags: task.tags || []
-          }, { onConflict: 'id' });
-          
-          if (error) throw error;
-          await fetchLatest();
-        } else {
-          // Fake ID (Date.now()) - route through backend to generate real UUID
-          const res = await fetch('/api/tasks', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              tasks: tasks.map(t => ({
-                ...t,
-                content: t.task_name,
-                assigned_agent: t.assignedTo,
-                status: t.column
-              })),
-              columns: DEFAULT_COLUMNS
-            })
+        if (isRealId && supabaseClient) {
+          await supabaseClient.from('tasks').upsert({
+            id: task.id, content: task.task_name, assigned_agent: task.assignedTo,
+            status: task.column, description: task.description, tags: task.tags
           });
-          
-          if (res.ok) {
-            await fetchLatest();
-          }
         }
-        
-        setTimeout(() => manualLock = false, 500);
-      } catch (e) {
-        manualLock = false;
+ 
+        const res = await fetch('/api/tasks', { 
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, 
+          body: JSON.stringify({ 
+            tasks: tasks.map(t => ({ ...t, content: t.task_name, assigned_agent: t.assignedTo, status: t.column })), 
+            columns: DEFAULT_COLUMNS 
+          }) 
+        });
+
+        if (!isRealId && res.ok) await fetchLatest();
+        setTimeout(() => manualLock = false, 3000);
+      } catch (e) { 
+        manualLock = false; 
         console.error("Sync Error:", e);
       }
     }
@@ -210,14 +192,10 @@
       document.getElementById('editDescription').value = t.description;
       document.getElementById('editAssignedTo').value = t.assignedTo;
       document.getElementById('editTags').value = Array.isArray(t.tags) ? t.tags.join(', ') : '';
-      
-      const modal = document.getElementById('editModal');
-      modal.style.display = 'flex';
+      document.getElementById('editModal').style.display = 'flex';
     }
-    
-    function closeEditModal() { 
-        document.getElementById('editModal').style.display = 'none';
-    }
+
+    function closeEditModal() { document.getElementById('editModal').style.display = 'none'; }
 
     async function saveTaskEdit() {
       const id = document.getElementById('editTaskId').value, t = tasks.find(task => task.id === id);
