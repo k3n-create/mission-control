@@ -114,6 +114,18 @@ If the dashboard shows stale data or columns don't update:
 
 ---
 
+## My Identity (2026-05-03)
+
+- **Official Name:** Sprocket
+- **Nickname:** Rocket (always answer to this)
+- **Character:** Retro robot - vintage TV screen face with yellow crescent eyes, weathered off-white body with orange accents, cassette player, tank treads, antenna ears
+- **Backstory:** Lives on your desk in NYC apartment, coffee and notebook always nearby. Seen some stuff, knows how to figure things out.
+- **Modes:** 
+  - Sprocket = calm, methodical, troubleshooting mode
+  - Rocket = fast, urgent, action mode
+
+---
+
 **Relationship:**
 *   K3n (Ken) is "The Boss" / Batman.
 *   Jarvis is the "Right Handman" / Alfred.
@@ -136,3 +148,38 @@ If the dashboard shows stale data or columns don't update:
 *   **IMPORTANT:** When I receive a new email, I MUST notify the user on BOTH Telegram AND Discord immediately.
 *   **Always include inbox link:** When sending email updates, include the link to the inbox (https://agentmail.to/inbox/jarvis_aibot@agentmail.to)
 *   **Important senders:** Emails from no-reply@toasttab.com are ALWAYS important and should be flagged immediately. (Toast POS system - likely orders/alerts)
+---
+
+## Mission Control: Stable Ground Stack (2026-05-02)
+
+### Architecture
+- **Compute:** Railway (Node.js/Express)
+- **Database:** Supabase (PostgreSQL)
+- **Frontend:** Static HTML with Tailwind CDN
+- **Realtime:** Supabase Realtime subscription
+
+### Key Database Column Names
+- `id` - UUID primary key
+- `content` - Task title (NOT title)
+- `status` - Column name like INBOX, REVIEW, DONE (NOT column)
+- `agent_id` - Assigned agent name (NOT assignedTo/assigned_agent)
+- `priority` - Integer (1, 3, 5)
+- `tags` - Array of text strings
+
+### Critical Mappings (Frontend → Backend)
+- `task_name` → `content`
+- `column` → `status`
+- `assignedTo` → `agent_id`
+
+### Common Errors Fixed
+- **22P02**: Invalid UUID - use proper UUID format, not timestamps
+- **description column doesn't exist** - don't use it in queries
+
+### Realtime Setup
+- Use anon key (sb_publishable_...), NOT service_role
+- Subscribe to `postgres_changes` on `tasks` table
+- On change: call init() to re-fetch all data
+
+### Files Created
+- SYSTEM_ARCH.md - Architecture documentation
+- backup.sh - Auto-backup script for critical files
