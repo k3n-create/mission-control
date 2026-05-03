@@ -10,32 +10,26 @@ const PORT = process.env.PORT || 8080;
 app.use(cors());
 app.use(express.json());
 
-// GLOBAL SCOPE MAPS
 const statusMap = { 'INBOX': 'todo', 'ASSIGNED': 'assigned', 'IN PROGRESS': 'in_progress', 'REVIEW': 'review', 'DONE': 'done' };
 const reverseStatusMap = { 'todo': 'INBOX', 'assigned': 'ASSIGNED', 'in_progress': 'IN PROGRESS', 'review': 'REVIEW', 'done': 'DONE' };
 
 const mapStatus = (s) => statusMap[s?.toUpperCase()] || s?.toLowerCase() || 'todo';
 const reverseMapStatus = (s) => reverseStatusMap[s] || s?.toUpperCase() || 'INBOX';
 
-// --- CRITICAL FIX: Serve static HTML dashboard ---
+// --- ROOT ROUTE (Fixes White Screen) ---
 app.get('/', async (req, res) => {
  try {
  const html = await readFile('./index.html', 'utf-8');
  res.set('Content-Type', 'text/html');
  res.send(html);
- } catch (err) {
- res.status(500).send('Dashboard file (index.html) not found in root directory');
- }
+ } catch (err) { res.status(500).send('index.html not found'); }
 });
 
-// GET /api/tasks - Prototype Mode (No client_id filter)
+// GET /api/tasks
 app.get('/api/tasks', async (req, res) => {
  try {
- const { data, error } = await supabase
- .from('tasks')
- .select('*')
- .order('created_at', { ascending: true });
-
+ const TEST_ID = '5f80e462-ddfb-45fe-874d-7b36463b26d6';
+ const { data, error } = await supabase.from('tasks').select('*').eq('client_id', TEST_ID).order('created_at', { ascending: true });
  if (error) throw error;
 
  const tasksByColumn = {};
@@ -46,8 +40,8 @@ app.get('/api/tasks', async (req, res) => {
  tasksByColumn[dashboardStatus].push({
  id: task.id,
  task_name: task.content,
- status: dashboardStatus,
- assigned_agent: task.assigned_agent || '',
+ column: dashboardStatus, // Changed to 'column' to match frontend
+ assignedTo: task.assigned_agent || '', 
  description: task.description || '',
  tags: task.tags || []
  });
@@ -57,25 +51,23 @@ app.get('/api/tasks', async (req, res) => {
  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// POST /api/tasks - Partial updates, UUID safe
+// POST /api/tasks
 app.post('/api/tasks', async (req, res) => {
  try {
+ const TEST_ID = '5f80e462-ddfb-45fe-874d-7b36463b26d6';
  const { tasks } = req.body;
  for (const task of tasks) {
  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(task.id);
  const payload = {
+ client_id: TEST_ID,
  content: task.task_name,
- status: reverseMapStatus(task.status || task.column),
+ status: reverseMapStatus(task.column),
  description: task.description,
  tags: task.tags,
- assigned_agent: task.assigned_agent
+ assigned_agent: task.assignedTo
  };
-
- if (!isUUID) {
- await supabase.from('tasks').insert({ ...payload, id: uuidv4() });
- } else {
- await supabase.from('tasks').update(payload).eq('id', task.id);
- }
+ if (!isUUID) { await supabase.from('tasks').insert({ ...payload, id: uuidv4() }); }
+ else { await supabase.from('tasks').update(payload).eq('id', task.id); }
  }
  res.status(200).json({ success: true });
  } catch (error) { res.status(500).json({ error: error.message }); }
