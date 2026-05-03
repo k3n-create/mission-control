@@ -75,6 +75,24 @@
  </div>
 
 <script>
+ // SENTINEL: Intercepts browser crashes and reports to backend
+ window.onerror = async function(msg, url, line, col, error) {
+ const errorDetail = {
+ task_name: `FRONTEND CRASH: ${msg.substring(0, 30)}...`,
+ status: 'INBOX', // Ensure it lands where you can see it
+ description: `Error: ${msg}\nLocation: ${url}\nLine: ${line}:${col}\nStack: ${error?.stack}`,
+ assigned_agent: 'JARVIS',
+ tags: ['CRITICAL', 'SYSTEM_ERROR']
+ };
+
+ // Push the error directly to the API
+ await fetch('/api/tasks', {
+ method: 'POST',
+ headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify({ tasks: [errorDetail] })
+ }).catch(err => console.error("Could not report crash:", err));
+};
+
  const statusMap = { 'INBOX': 'todo', 'ASSIGNED': 'assigned', 'IN PROGRESS': 'in_progress', 'REVIEW': 'review', 'DONE': 'done' };
  const COLUMNS = ['todo', 'assigned', 'in_progress', 'review', 'done'];
  const COL_LABELS = { 'todo': 'INBOX', 'assigned': 'ASSIGNED', 'in_progress': 'IN PROGRESS', 'review': 'REVIEW', 'done': 'DONE' };
