@@ -56,4 +56,25 @@ app.delete('/api/tasks/:id', async (req, res) => {
  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+app.use((err, req, res, next) => {
+ console.error('System Failure:', err);
+ 
+ const diagnosticTask = {
+ client_id: TEST_ID, // Use your established Test ID
+ content: `BACKEND FAILURE: ${err.message}`,
+ status: 'INBOX',
+ description: `Endpoint: ${req.method} ${req.url}\nTimestamp: ${new Date().toISOString()}\nStack: ${err.stack}`,
+ assigned_agent: 'JARVIS',
+ tags: ['BACKEND', '500_ERROR'],
+ priority: 5 // Set to High
+ };
+
+ // Silently inject into Supabase
+ supabase.from('tasks').insert(diagnosticTask).then(({ error }) => {
+ if (error) console.error('Double-Fault (Failed to log error task):', error);
+ });
+
+ res.status(500).json({ error: 'Internal System Error reported to Mission Control' });
+});
+
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
