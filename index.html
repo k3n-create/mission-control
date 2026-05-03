@@ -1,226 +1,216 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mission Control</title>
-  
-  <script>
-    window.onerror = function(msg, url, line) {
-        document.body.innerHTML += `<div style="background:#ef4444; color:white; padding:20px; position:fixed; top:0; left:0; width:100%; z-index:999999; font-family:monospace;">
-            <b>CRITICAL SCRIPT CRASH:</b> ${msg} <br> Line: ${line} <br><br> <i>Take a screenshot of this error.</i>
-        </div>`;
-    };
-  </script>
+ <meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <title>Mission Control</title>
+ 
+ <script>
+ window.onerror = function(msg, url, line) {
+ document.body.innerHTML += `<div style="background:#ef4444; color:white; padding:20px; position:fixed; top:0; left:0; width:100%; z-index:999999; font-family:monospace;">
+ <b>CRITICAL SCRIPT CRASH:</b> ${msg} <br> Line: ${line} <br><br> <i>Take a screenshot of this error.</i>
+ </div>`;
+ };
+ </script>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  
-  <style>
-    body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #0a0a0b 0%, #111827 100%); min-height: 100vh; margin: 0; color: #f8fafc; }
-    .glass { background: rgba(15, 15, 17, 0.90); border: 1px solid rgba(255, 255, 255, 0.08); padding: 1rem; }
-    .card { background: rgba(30, 30, 35, 1); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 0.5rem; transition: transform 0.2s, border-color 0.2s; cursor: pointer; padding: 1rem; margin-bottom: 0.75rem; }
-    .card:hover { transform: translateY(-2px); border-color: rgba(6, 182, 212, 0.5); }
-    .card.dragging { opacity: 0.5; border: 1px dashed #22d3ee; }
-    .columns-container { display: flex; gap: 1.25rem; overflow-x: auto; height: 100%; padding-bottom: 20px; }
-    .column { flex: 1; min-width: 280px; display: flex; flex-direction: column; }
-    .column-header { font-size: 10px; font-weight: bold; letter-spacing: 0.3em; color: #06b6d4; text-transform: uppercase; margin-bottom: 1rem; display: flex; justify-content: space-between;}
-    .tag-pill { background: rgba(255, 255, 255, 0.1); color: #94a3b8; font-size: 0.65rem; padding: 0.15rem 0.4rem; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.1); margin-right: 4px; }
-    .agent-badge { background: rgba(6, 182, 212, 0.15); color: #22d3ee; border: 1px solid rgba(6, 182, 212, 0.3); font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 0.25rem; text-transform: uppercase; display: inline-block; margin-bottom: 8px; }
-    .modal-backdrop { background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(8px); }
-  </style>
+ <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+ <script src="https://cdn.tailwindcss.com"></script>
+ <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+ 
+ <style>
+ body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #0a0a0b 0%, #111827 100%); min-height: 100vh; margin: 0; color: #f8fafc; }
+ .glass { background: rgba(15, 15, 17, 0.90); border: 1px solid rgba(255, 255, 255, 0.08); padding: 1rem; }
+ .card { background: rgba(30, 30, 35, 1); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 0.5rem; transition: transform 0.2s, border-color 0.2s; cursor: pointer; padding: 1rem; margin-bottom: 0.75rem; }
+ .card:hover { transform: translateY(-2px); border-color: rgba(6, 182, 212, 0.5); }
+ .card.dragging { opacity: 0.5; border: 1px dashed #22d3ee; }
+ .columns-container { display: flex; gap: 1.25rem; overflow-x: auto; height: 100%; padding-bottom: 20px; }
+ .column { flex: 1; min-width: 280px; display: flex; flex-direction: column; }
+ .column-header { font-size: 10px; font-weight: bold; letter-spacing: 0.3em; color: #06b6d4; text-transform: uppercase; margin-bottom: 1rem; display: flex; justify-content: space-between;}
+ .tag-pill { background: rgba(255, 255, 255, 0.1); color: #94a3b8; font-size: 0.65rem; padding: 0.15rem 0.4rem; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.1); margin-right: 4px; }
+ .agent-badge { background: rgba(6, 182, 212, 0.15); color: #22d3ee; border: 1px solid rgba(6, 182, 212, 0.3); font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 0.25rem; text-transform: uppercase; display: inline-block; margin-bottom: 8px; }
+ .modal-backdrop { background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(8px); }
+ </style>
 </head>
 <body>
-  <header class="glass p-4 flex justify-between items-center sticky top-0 z-40">
-    <div class="flex items-center gap-3">
-      <div class="w-10 h-10 bg-cyan-600 rounded flex items-center justify-center font-bold text-black" style="background:#0891b2; color:black; width:40px; height:40px; display:flex; align-items:center; justify-content:center; border-radius:4px; font-weight:bold;">J</div>
-      <div>
-        <h1 class="text-xl font-bold text-white" style="margin:0; font-size:1.25rem;">MISSION CONTROL</h1>
-        <p class="text-[10px] text-cyan-500 font-mono tracking-widest uppercase" style="margin:0; font-size:10px; color:#06b6d4; letter-spacing:0.1em;">System Ironclad</p>
-      </div>
-    </div>
-  </header>
+ <header class="glass p-4 flex justify-between items-center sticky top-0 z-40">
+ <div class="flex items-center gap-3">
+ <div class="w-10 h-10 bg-cyan-600 rounded flex items-center justify-center font-bold text-black" style="background:#0891b2; color:black; width:40px; height:40px; display:flex; align-items:center; justify-content:center; border-radius:4px; font-weight:bold;">J</div>
+ <div>
+ <h1 class="text-xl font-bold text-white" style="margin:0; font-size:1.25rem;">MISSION CONTROL</h1>
+ <p class="text-[10px] text-cyan-500 font-mono tracking-widest uppercase" style="margin:0; font-size:10px; color:#06b6d4; letter-spacing:0.1em;">System Ironclad</p>
+ </div>
+ </div>
+ </header>
 
-  <main class="p-6 h-[calc(100vh-88px)]" style="padding:1.5rem; height: calc(100vh - 88px);">
-    <div id="board" class="columns-container h-full"></div>
-  </main>
+ <main class="p-6 h-[calc(100vh-88px)]" style="padding:1.5rem; height: calc(100vh - 88px);">
+ <div id="board" class="columns-container h-full"></div>
+ </main>
 
-  <div id="editModal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-50" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; align-items:center; justify-content:center;">
-    <div class="glass rounded-xl p-8 w-[520px] max-w-full shadow-2xl" style="width:520px; max-width:90%; border-radius:12px;">
-      <h2 class="text-xl font-bold text-white mb-2" style="margin-top:0;">Task Protocol</h2>
-      <input type="hidden" id="editTaskId">
-      <div class="space-y-5" style="display:flex; flex-direction:column; gap:1.25rem; margin-top:1rem;">
-        <input type="text" id="editTitle" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm focus:border-cyan-500 outline-none" placeholder="Objective Title" style="width:100%; background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); padding:12px; color:white; border-radius:6px;">
-        <textarea id="editDescription" rows="4" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm focus:border-cyan-500 outline-none" placeholder="Details" style="width:100%; background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); padding:12px; color:white; border-radius:6px;"></textarea>
-        <div class="grid grid-cols-2 gap-4" style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem;">
-          <select id="editAssignedTo" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm outline-none" style="width:100%; background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); padding:12px; color:white; border-radius:6px;">
-            <option value="">Assign Asset</option><option value="JARVIS">JARVIS</option><option value="JADE">JADE</option><option value="K3n">K3n</option>
-          </select>
-          <input type="text" id="editTags" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm outline-none" placeholder="tag1, tag2" style="width:100%; background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); padding:12px; color:white; border-radius:6px;">
-        </div>
-      </div>
-      <div class="flex justify-between mt-10" style="display:flex; justify-content:space-between; margin-top:2.5rem;">
-        <button onclick="deleteTask()" style="color:#ef4444; font-size:11px; font-weight:bold; letter-spacing:0.1em; background:none; border:none; cursor:pointer; text-transform:uppercase;">Terminate</button>
-        <div style="display:flex; gap:1rem;">
-          <button onclick="closeEditModal()" style="color:#94a3b8; font-size:14px; background:none; border:none; cursor:pointer;">Exit</button>
-          <button onclick="saveTaskEdit()" style="background:#0891b2; color:white; padding:8px 24px; border-radius:4px; font-weight:bold; font-size:14px; border:none; cursor:pointer;">PUSH TRUTH</button>
-        </div>
-      </div>
-    </div>
-  </div>
+ <div id="editModal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-50" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; align-items:center; justify-content:center;">
+ <div class="glass rounded-xl p-8 w-[520px] max-w-full shadow-2xl" style="width:520px; max-width:90%; border-radius:12px;">
+ <h2 class="text-xl font-bold text-white mb-2" style="margin-top:0;">Task Protocol</h2>
+ <input type="hidden" id="editTaskId">
+ <div class="space-y-5" style="display:flex; flex-direction:column; gap:1.25rem; margin-top:1rem;">
+ <input type="text" id="editTitle" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm focus:border-cyan-500 outline-none" placeholder="Objective Title" style="width:100%; background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); padding:12px; color:white; border-radius:6px;">
+ <textarea id="editDescription" rows="4" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm focus:border-cyan-500 outline-none" placeholder="Details" style="width:100%; background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); padding:12px; color:white; border-radius:6px;"></textarea>
+ <div class="grid grid-cols-2 gap-4" style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem;">
+ <select id="editAssignedTo" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm outline-none" style="width:100%; background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); padding:12px; color:white; border-radius:6px;">
+ <option value="">Assign Asset</option><option value="JARVIS">JARVIS</option><option value="JADE">JADE</option><option value="K3n">K3n</option>
+ </select>
+ <input type="text" id="editTags" class="w-full bg-black/40 border border-white/10 rounded-md p-3 text-sm outline-none" placeholder="tag1, tag2" style="width:100%; background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); padding:12px; color:white; border-radius:6px;">
+ </div>
+ </div>
+ <div class="flex justify-between mt-10" style="display:flex; justify-content:space-between; margin-top:2.5rem;">
+ <button onclick="deleteTask()" style="color:#ef4444; font-size:11px; font-weight:bold; letter-spacing:0.1em; background:none; border:none; cursor:pointer; text-transform:uppercase;">Terminate</button>
+ <div style="display:flex; gap:1rem;">
+ <button onclick="closeEditModal()" style="color:#94a3b8; font-size:14px; background:none; border:none; cursor:pointer;">Exit</button>
+ <button onclick="saveTaskEdit()" style="background:#0891b2; color:white; padding:8px 24px; border-radius:4px; font-weight:bold; font-size:14px; border:none; cursor:pointer;">PUSH TRUTH</button>
+ </div>
+ </div>
+ </div>
+ </div>
 
-  <script>
-    const DEFAULT_COLUMNS = ['todo', 'assigned', 'in_progress', 'review', 'done'];
-    const displayNames = { 'todo': 'INBOX', 'assigned': 'ASSIGNED', 'in_progress': 'IN PROGRESS', 'review': 'REVIEW', 'done': 'DONE' };
-    const supabaseUrl = 'https://ljoiifswtizxhtwtilkf.supabase.co';
-    const supabaseKey = 'sb_publishable_wICRlh3baVhWG9Lqw4u1Zg_ADbfIMtm';
+ <script>
+ const DEFAULT_COLUMNS = ['todo', 'assigned', 'in_progress', 'review', 'done'];
+ const displayNames = { 'todo': 'INBOX', 'assigned': 'ASSIGNED', 'in_progress': 'IN PROGRESS', 'review': 'REVIEW', 'done': 'DONE' };
+ const supabaseUrl = 'https://ljoiifswtizxhtwtilkf.supabase.co';
+ const supabaseKey = 'sb_publishable_wICRlh3baVhWG9Lqw4u1Zg_ADbfIMtm';
 
-    let supabaseClient, tasks = [], manualLock = false;
+ let supabaseClient, tasks = [], manualLock = false;
 
-    function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+ function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
-    function renderBoard() {
-      const board = document.getElementById('board');
-      if (!board) throw new Error("Critical UI Element '#board' Missing");
-      
-      board.innerHTML = DEFAULT_COLUMNS.map(col => `
-        <div class="column glass rounded-lg">
-          <div class="column-header">
-            <span>${displayNames[col]}</span>
-            <button onclick="createNewTask('${col}')" style="color:#94a3b8; font-size:18px; background:none; border:none; cursor:pointer; font-weight:bold;">+</button>
-          </div>
-          <div class="column-body flex-1" style="min-height:200px;" id="col-${col}" ondragover="allowDrop(event)" ondrop="drop(event)">
-            ${tasks.filter(t => t.column === col).map(t => {
-                const safeTags = Array.isArray(t.tags) ? t.tags : (typeof t.tags === 'string' ? t.tags.split(',') : []);
-                return `
-              <div class="card" draggable="true" ondragstart="drag(event)" data-id="${t.id}" onclick="openEditModal('${t.id}')">
-                ${t.assignedTo ? `<span class="agent-badge">${escapeHtml(t.assignedTo)}</span>` : ''}
-                <div style="font-size:14px; font-weight:600; color:#f3f4f6;">${escapeHtml(t.task_name)}</div>
-                <div style="display:flex; flex-wrap:wrap; margin-top:8px;">${safeTags.map(tag => `<span class="tag-pill">${escapeHtml(tag.trim())}</span>`).join('')}</div>
-              </div>
-            `}).join('')}
-          </div>
-        </div>
-      `).join('');
-    }
-
-    async function connectSupabase() {
-      if (!window.supabase) {
-          setTimeout(connectSupabase, 250);
-          return;
-      }
-      
-      supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
-      await fetchLatest();
-      
-      supabaseClient.channel('tasks-channel').on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
-          if (!manualLock) fetchLatest();
-      }).subscribe();
-    }
-
-    async function fetchLatest() {
-        const { data, error } = await supabaseClient.from('tasks').select('*');
-        if (error) throw error;
-        if (data) {
-            tasks = data.map(t => ({
-              id: t.id.toString(), column: (t.status || 'todo').toLowerCase(),
-              assignedTo: t.assigned_agent || '', task_name: t.content || 'Untitled',
-              description: t.description || '', tags: t.tags || []
-            }));
-            renderBoard();
-        }
-    }
-
-    function allowDrop(e) { e.preventDefault(); }
-    function drag(e) { e.dataTransfer.setData("text", e.target.dataset.id); e.target.classList.add('dragging'); }
-    
-    async function drop(e) {
-      e.preventDefault();
-      const id = e.dataTransfer.getData("text");
-      const columnBody = e.target.closest('.column-body');
-      if (!columnBody) return;
-      
-      const task = tasks.find(t => t.id === id);
-      if (task) {
-        task.column = columnBody.id.replace('col-', '');
-        renderBoard();
-        await pushTruth(task);
-      }
-    }
-
-    async function createNewTask(col) {
-      const newTask = { id: Date.now().toString(), task_name: 'NEW_OBJECTIVE', column: col, description: '', assignedTo: '', tags: [] };
-      tasks.push(newTask);
-      renderBoard();
-      await pushTruth(newTask);
-      openEditModal(newTask.id);
-    }
-
-    async function pushTruth(task) {
-      manualLock = true;
-      try {
-        const isRealId = task && task.id && task.id.includes('-');
-        
-        if (isRealId && supabaseClient) {
-          await supabaseClient.from('tasks').upsert({
-            id: task.id, content: task.task_name, assigned_agent: task.assignedTo,
-            status: task.column, description: task.description, tags: task.tags
-          });
-        }
+ function renderBoard() {
+ const board = document.getElementById('board');
+ if (!board) throw new Error("Critical UI Element '#board' Missing");
  
-        const res = await fetch('/api/tasks', { 
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, 
-          body: JSON.stringify({ 
-            tasks: tasks.map(t => ({ ...t, content: t.task_name, assigned_agent: t.assignedTo, status: t.column })), 
-            columns: DEFAULT_COLUMNS 
-          }) 
-        });
+ board.innerHTML = DEFAULT_COLUMNS.map(col => `
+ <div class="column glass rounded-lg">
+ <div class="column-header">
+ <span>${displayNames[col]}</span>
+ <button onclick="createNewTask('${col}')" style="color:#94a3b8; font-size:18px; background:none; border:none; cursor:pointer; font-weight:bold;">+</button>
+ </div>
+ <div class="column-body flex-1" style="min-height:200px;" id="col-${col}" ondragover="allowDrop(event)" ondrop="drop(event)">
+ ${tasks.filter(t => t.column === col).map(t => {
+ const safeTags = Array.isArray(t.tags) ? t.tags : (typeof t.tags === 'string' ? t.tags.split(',') : []);
+ return `
+ <div class="card" draggable="true" ondragstart="drag(event)" data-id="${t.id}" onclick="openEditModal('${t.id}')">
+ ${t.assignedTo ? `<span class="agent-badge">${escapeHtml(t.assignedTo)}</span>` : ''}
+ <div style="font-size:14px; font-weight:600; color:#f3f4f6;">${escapeHtml(t.task_name)}</div>
+ <div style="display:flex; flex-wrap:wrap; margin-top:8px;">${safeTags.map(tag => `<span class="tag-pill">${escapeHtml(tag.trim())}</span>`).join('')}</div>
+ </div>
+ `}).join('')}
+ </div>
+ </div>
+ `).join('');
+ }
 
-        if (!isRealId && res.ok) await fetchLatest();
-        setTimeout(() => manualLock = false, 3000);
-      } catch (e) { 
-        manualLock = false; 
-        console.error("Sync Error:", e);
-      }
-    }
+ async function connectSupabase() {
+ if (!window.supabase) {
+ setTimeout(connectSupabase, 250);
+ return;
+ }
+ 
+ supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+ await fetchLatest();
+ 
+ supabaseClient.channel('tasks-channel').on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
+ if (!manualLock) fetchLatest();
+ }).subscribe();
+ }
 
-    function openEditModal(id) {
-      const t = tasks.find(task => task.id === id); if (!t) return;
-      document.getElementById('editTaskId').value = t.id;
-      document.getElementById('editTitle').value = t.task_name;
-      document.getElementById('editDescription').value = t.description;
-      document.getElementById('editAssignedTo').value = t.assignedTo;
-      document.getElementById('editTags').value = Array.isArray(t.tags) ? t.tags.join(', ') : '';
-      document.getElementById('editModal').style.display = 'flex';
-    }
+ async function fetchLatest() {
+ const { data, error } = await supabaseClient.from('tasks').select('*');
+ if (error) throw error;
+ if (data) {
+ tasks = data.map(t => ({
+ id: t.id.toString(), column: (t.status || 'todo').toLowerCase(),
+ assignedTo: t.assigned_agent || '', task_name: t.content || 'Untitled',
+ description: t.description || '', tags: t.tags || []
+ }));
+ renderBoard();
+ }
+ }
 
-    function closeEditModal() { document.getElementById('editModal').style.display = 'none'; }
+ function allowDrop(e) { e.preventDefault(); }
+ function drag(e) { e.dataTransfer.setData("text", e.target.dataset.id); e.target.classList.add('dragging'); }
+ 
+ async function drop(e) {
+ e.preventDefault();
+ const id = e.dataTransfer.getData("text");
+ const columnBody = e.target.closest('.column-body');
+ if (!columnBody) return;
+ 
+ const task = tasks.find(t => t.id === id);
+ if (task) {
+ task.column = columnBody.id.replace('col-', '');
+ renderBoard();
+ await pushTruth(task);
+ }
+ }
 
-    async function saveTaskEdit() {
-      const id = document.getElementById('editTaskId').value, t = tasks.find(task => task.id === id);
-      if (t) {
-        t.task_name = document.getElementById('editTitle').value;
-        t.description = document.getElementById('editDescription').value;
-        t.assignedTo = document.getElementById('editAssignedTo').value;
-        t.tags = document.getElementById('editTags').value.split(',').map(tag => tag.trim()).filter(tag => tag);
-        renderBoard(); await pushTruth(t);
-      }
-      closeEditModal();
-    }
+ async function createNewTask(col) {
+ const newTask = { id: Date.now().toString(), task_name: 'NEW_OBJECTIVE', column: col, description: '', assignedTo: '', tags: [] };
+ tasks.push(newTask);
+ renderBoard();
+ await pushTruth(newTask);
+ openEditModal(newTask.id);
+ }
 
-    async function deleteTask() {
-      const id = document.getElementById('editTaskId').value;
-      if (confirm("TERMINATE MISSION?")) {
-        if (supabaseClient) await supabaseClient.from('tasks').delete().eq('id', id);
-        tasks = tasks.filter(t => t.id !== id);
-        renderBoard(); closeEditModal();
-      }
-    }
+ async function pushTruth(task) {
+ manualLock = true;
+ try {
+ if (task && supabaseClient) {
+ await supabaseClient.from('tasks').upsert({
+ id: task.id, content: task.task_name, assigned_agent: task.assignedTo,
+ status: task.column, description: task.description, tags: task.tags
+ });
+ }
+ fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tasks: tasks.map(t => ({ ...t, content: t.task_name, assigned_agent: t.assignedTo, status: t.column })), columns: DEFAULT_COLUMNS }) }).catch(() => {});
+ setTimeout(() => manualLock = false, 3000);
+ } catch (e) { manualLock = false; throw e; }
+ }
 
-    // IGNITION SEQUENCE
-    renderBoard();
-    connectSupabase();
-  </script>
+ function openEditModal(id) {
+ const t = tasks.find(task => task.id === id); if (!t) return;
+ document.getElementById('editTaskId').value = t.id;
+ document.getElementById('editTitle').value = t.task_name;
+ document.getElementById('editDescription').value = t.description;
+ document.getElementById('editAssignedTo').value = t.assignedTo;
+ document.getElementById('editTags').value = Array.isArray(t.tags) ? t.tags.join(', ') : '';
+ 
+ const modal = document.getElementById('editModal');
+ modal.style.display = 'flex';
+ }
+ 
+ function closeEditModal() { 
+ document.getElementById('editModal').style.display = 'none';
+ }
+
+ async function saveTaskEdit() {
+ const id = document.getElementById('editTaskId').value, t = tasks.find(task => task.id === id);
+ if (t) {
+ t.task_name = document.getElementById('editTitle').value;
+ t.description = document.getElementById('editDescription').value;
+ t.assignedTo = document.getElementById('editAssignedTo').value;
+ t.tags = document.getElementById('editTags').value.split(',').map(tag => tag.trim()).filter(tag => tag);
+ renderBoard(); await pushTruth(t);
+ }
+ closeEditModal();
+ }
+
+ async function deleteTask() {
+ const id = document.getElementById('editTaskId').value;
+ if (confirm("TERMINATE MISSION?")) {
+ if (supabaseClient) await supabaseClient.from('tasks').delete().eq('id', id);
+ tasks = tasks.filter(t => t.id !== id);
+ renderBoard(); closeEditModal();
+ }
+ }
+
+ // IGNITION SEQUENCE
+ renderBoard();
+ connectSupabase();
+ </script>
 </body>
 </html>
