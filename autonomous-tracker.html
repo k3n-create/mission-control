@@ -202,28 +202,103 @@
         </div>
 
         <div id="view-recipe" class="view">
-            <div class="panel">
-                <h2 id="recipe-builder-title">Build New Menu Item</h2>
-                <div class="form-group" style="margin-bottom: 2rem;">
-                    <input type="text" id="menu-name" placeholder="Menu Item Name (e.g., 6pc Wing Combo)" style="font-size: 1.2rem; padding: 1rem;">
+            <!-- Header -->
+            <div style="margin-bottom: 1.5rem;">
+                <a href="#" onclick="switchView('view-dashboard'); return false;" style="display: inline-flex; align-items: center; gap: 0.5rem; color: #6c757d; text-decoration: none; font-weight: 500; margin-bottom: 1rem;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                    Back to Overview
+                </a>
+                <div style="text-align: center; margin-bottom: 0.5rem;">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="2" style="display: inline-block; vertical-align: middle;"><path d="M12 2C8 2 6 4.5 6 7c0 2.5 2 4 2 4v7c0 1.1 1.8 2 4 2s4-.9 4-2v-7s2-1.5 2-4c0-2.5-2-5-6-5z"/><path d="M12 17v4"/><path d="M9 21h6"/></svg>
+                    <h1 style="display: inline-block; font-size: 1.75rem; font-weight: 700; color: #1f2937; margin-left: 0.5rem; vertical-align: middle;">Recipe Builder</h1>
                 </div>
-                
-                <h3 style="margin-bottom: 1rem; color: var(--text-muted); font-size: 1rem;">Recipe Components</h3>
-                <div id="recipe-container">
+                <p style="text-align: center; color: #9ca3af; font-size: 0.95rem;">Build your menu item from ingredients</p>
+            </div>
+
+            <!-- Two Column Layout -->
+            <div style="display: grid; grid-template-columns: 1fr 320px; gap: 1.5rem; align-items: start;">
+                <!-- Left Column -->
+                <div class="panel" style="margin-bottom: 0;">
+                    <!-- Menu Item Name -->
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; font-weight: 700; color: #1f2937; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem;">Menu Item Name</label>
+                        <input type="text" id="menu-name" placeholder="e.g., 6pc Wing Combo" style="width: 100%; font-size: 1.1rem; padding: 0.8rem 1rem; background: #fff;">
                     </div>
-                
-                <button class="btn" id="btn-add-recipe-row" style="margin-bottom: 2rem; width: 100%; border-style: dashed;">+ Add Ingredient to Recipe</button>
 
-                <h3 style="margin-bottom: 1rem; color: var(--text-muted); font-size: 1rem;">Pricing Strategy</h3>
-                <div class="form-group">
-                    <input type="number" id="menu-instore" placeholder="In-Store Price ($)" step="0.01" min="0">
-                    <input type="number" id="menu-online" placeholder="Online Price ($)" step="0.01" min="0">
+                    <!-- Pricing Architecture -->
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; font-weight: 700; color: #1f2937; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.75rem;">Pricing Architecture</label>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div>
+                                <label style="display: block; font-weight: 600; color: #374151; font-size: 0.8rem; margin-bottom: 0.5rem;">Point of Sale (In-Store)</label>
+                                <div style="position: relative;">
+                                    <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #6b7280; font-weight: 500;">$</span>
+                                    <input type="number" id="menu-instore" placeholder="0.00" step="0.01" min="0" style="width: 100%; padding-left: 1.75rem; background: #fff;" oninput="updateLivePreview()">
+                                </div>
+                            </div>
+                            <div>
+                                <label style="display: block; font-weight: 600; color: #374151; font-size: 0.8rem; margin-bottom: 0.5rem;">Delivery App (Online)</label>
+                                <div style="position: relative;">
+                                    <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #6b7280; font-weight: 500;">$</span>
+                                    <input type="number" id="menu-online" placeholder="0.00" step="0.01" min="0" style="width: 100%; padding-left: 1.75rem; background: #fff;" oninput="updateLivePreview()">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bill of Materials -->
+                    <div style="margin-bottom: 1.5rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                            <label style="font-weight: 700; color: #1f2937; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px;">Bill of Materials (BOM)</label>
+                            <span id="bom-component-count" style="color: #9ca3af; font-size: 0.85rem;">0 components</span>
+                        </div>
+                        <div id="recipe-container" style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1rem;">
+                        </div>
+                        <button class="btn" id="btn-add-recipe-row" style="width: 100%; margin-top: 0.5rem; border-style: dashed; background: transparent; color: #6b7280; font-weight: 600;">
+                            + Add Component
+                        </button>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div style="display: flex; gap: 1rem; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">
+                        <button class="btn btn-primary" id="btn-save-menu" style="flex: 2; padding: 1rem; font-size: 1rem; font-weight: 600;">Deploy to Menu</button>
+                        <button class="btn" id="btn-cancel-edit-menu" style="flex: 1; display: none; background: #f3f4f6; color: #374151;" onclick="cancelEditMenu()">Cancel</button>
+                    </div>
                 </div>
 
-                <div style="display: flex; gap: 1rem; margin-top: 1rem;">
-                    <button class="btn btn-primary" id="btn-save-menu" style="flex: 2; padding: 1rem; font-size: 1.1rem;">Save & Activate Item</button>
-                    <button class="btn" id="btn-cancel-edit-menu" style="flex: 1; display:none;" onclick="cancelEditMenu()">Cancel Edit</button>
+                <!-- Right Column - Live Cost Preview -->
+                <div class="panel" style="background: linear-gradient(145deg, #fefefe, #f8fafc); margin-bottom: 0;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                        <h3 style="font-weight: 700; color: #1f2937; font-size: 1rem;">Live Cost Preview</h3>
+                    </div>
+
+                    <!-- Total COGS -->
+                    <div style="margin-bottom: 1.5rem; padding: 1rem; background: #fff; border-radius: 8px; border: 1px solid #e5e7eb;">
+                        <label style="display: block; font-weight: 700; color: #1f2937; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem;">Total COGS</label>
+                        <div id="live-cogs" style="font-size: 1.75rem; font-weight: 700; color: #1f2937;">$0.00</div>
+                    </div>
+
+                    <!-- POS Margin -->
+                    <div style="margin-bottom: 1.5rem; padding: 1rem; background: #fff; border-radius: 8px; border: 1px solid #e5e7eb;">
+                        <label style="display: block; font-weight: 700; color: #1f2937; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem;">POS Margin</label>
+                        <div id="live-pos-margin" style="font-size: 1.25rem; font-weight: 600; color: #9ca3af;">Enter POS price</div>
+                    </div>
+
+                    <!-- Delivery Net Margin -->
+                    <div style="padding: 1rem; background: #fff; border-radius: 8px; border: 1px solid #e5e7eb;">
+                        <label style="display: block; font-weight: 700; color: #1f2937; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem;">Delivery Net Margin</label>
+                        <div id="live-delivery-margin" style="font-size: 1.25rem; font-weight: 600; color: #9ca3af;">Enter online price</div>
+                    </div>
                 </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="text-align: right; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;">
+                <span style="display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.75rem; color: #9ca3af; background: #f3f4f6; padding: 0.25rem 0.5rem; border-radius: 4px;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+                    Made with Replit
+                </span>
             </div>
         </div>
 
@@ -328,6 +403,9 @@
                 }
             });
             renderAll(); 
+            if (targetId === 'view-recipe') {
+                setTimeout(updateLivePreview, 100);
+            }
         }
 
         document.querySelectorAll('.nav-btn[data-target]').forEach(btn => {
@@ -503,11 +581,12 @@
             const row = document.createElement('div');
             row.className = 'recipe-row';
             row.innerHTML = `
-                <select class="recipe-ing-select">${getGroupedIngredientOptions(selectedIngId)}</select>
-                <input type="number" class="recipe-qty-input" placeholder="Quantity" min="0.1" step="0.1" value="${qty}">
-                <button class="btn btn-danger" onclick="this.parentElement.remove()">X</button>
+                <select class="recipe-ing-select" style="flex: 2;" onchange="updateLivePreview()">${getGroupedIngredientOptions(selectedIngId)}</select>
+                <input type="number" class="recipe-qty-input" placeholder="Qty" min="0.1" step="0.1" value="${qty}" style="flex: 1; width: 80px;" oninput="updateLivePreview()">
+                <button class="btn btn-danger" onclick="this.parentElement.remove(); updateLivePreview();" style="padding: 0.5rem 0.75rem;">✕</button>
             `;
             recipeContainer.appendChild(row);
+            updateLivePreview();
         };
 
         document.getElementById('btn-add-recipe-row').addEventListener('click', () => addRecipeRow());
@@ -565,10 +644,9 @@
             currentEditingMenuId = id;
             
             // Update UI to reflect Edit Mode
-            document.getElementById('recipe-builder-title').textContent = "Edit Menu Item";
-            document.getElementById('btn-save-menu').textContent = "Update & Activate Item";
+            document.getElementById('btn-save-menu').textContent = "Update Deployment";
             document.getElementById('btn-cancel-edit-menu').style.display = "inline-block";
-            document.getElementById('nav-recipe-btn').textContent = "Edit Recipe";
+            document.getElementById('nav-recipe-btn').textContent = "Edit Item";
 
             // Populate Form
             document.getElementById('menu-name').value = item.name;
@@ -579,13 +657,13 @@
             recipeContainer.innerHTML = '';
             item.recipe.forEach(r => addRecipeRow(r.ingId, r.qty));
 
+            setTimeout(updateLivePreview, 150);
             switchView('view-recipe');
         };
 
         window.cancelEditMenu = () => {
             currentEditingMenuId = null;
-            document.getElementById('recipe-builder-title').textContent = "Build New Menu Item";
-            document.getElementById('btn-save-menu').textContent = "Save & Activate Item";
+            document.getElementById('btn-save-menu').textContent = "Deploy to Menu";
             document.getElementById('btn-cancel-edit-menu').style.display = "none";
             document.getElementById('nav-recipe-btn').textContent = "Recipe Builder";
             
@@ -593,6 +671,7 @@
             document.getElementById('menu-instore').value = '';
             document.getElementById('menu-online').value = '';
             recipeContainer.innerHTML = '';
+            updateLivePreview();
         };
 
         window.deleteMenuItem = (id) => {
@@ -613,6 +692,62 @@
                 }
                 return total;
             }, 0);
+        }
+
+        // Live Cost Preview updater
+        function updateLivePreview() {
+            // Get current recipe from DOM
+            const recipeRows = document.querySelectorAll('.recipe-row');
+            let currentRecipe = [];
+            recipeRows.forEach(row => {
+                const ingId = row.querySelector('.recipe-ing-select')?.value;
+                const qty = row.querySelector('.recipe-qty-input')?.value;
+                if (ingId && qty && parseFloat(qty) > 0) {
+                    currentRecipe.push({ ingId: ingId, qty: parseFloat(qty) });
+                }
+            });
+
+            const cogs = calculateRecipeCost(currentRecipe);
+            const inStorePrice = parseFloat(document.getElementById('menu-instore')?.value) || 0;
+            const onlinePrice = parseFloat(document.getElementById('menu-online')?.value) || 0;
+
+            // Update COGS display
+            const cogsEl = document.getElementById('live-cogs');
+            if (cogsEl) cogsEl.textContent = '$' + cogs.toFixed(2);
+
+            // Update POS Margin
+            const posMarginEl = document.getElementById('live-pos-margin');
+            if (posMarginEl) {
+                if (inStorePrice > 0) {
+                    const profit = inStorePrice - cogs;
+                    const margin = (profit / inStorePrice) * 100;
+                    const marginClass = margin >= 65 ? 'color: #16a34a;' : (margin >= 30 ? 'color: #d97706;' : 'color: #ef4444;');
+                    posMarginEl.innerHTML = `<span style="${marginClass} font-weight: 700;">${margin.toFixed(1)}%</span> <span style="color: #6b7280; font-weight: 400;">$${profit.toFixed(2)} profit</span>`;
+                } else {
+                    posMarginEl.textContent = 'Enter POS price';
+                    posMarginEl.style.color = '#9ca3af';
+                }
+            }
+
+            // Update Delivery Margin
+            const deliveryMarginEl = document.getElementById('live-delivery-margin');
+            if (deliveryMarginEl) {
+                if (onlinePrice > 0) {
+                    const commission = 0.25; // 25% default
+                    const netPrice = onlinePrice * (1 - commission);
+                    const profit = netPrice - cogs;
+                    const margin = (profit / netPrice) * 100;
+                    const marginClass = margin >= 65 ? 'color: #16a34a;' : (margin >= 30 ? 'color: #d97706;' : 'color: #ef4444;');
+                    deliveryMarginEl.innerHTML = `<span style="${marginClass} font-weight: 700;">${margin.toFixed(1)}%</span> <span style="color: #6b7280; font-weight: 400;">$${profit.toFixed(2)} profit</span>`;
+                } else {
+                    deliveryMarginEl.textContent = 'Enter online price';
+                    deliveryMarginEl.style.color = '#9ca3af';
+                }
+            }
+
+            // Update component count
+            const countEl = document.getElementById('bom-component-count');
+            if (countEl) countEl.textContent = currentRecipe.length + ' component' + (currentRecipe.length !== 1 ? 's' : '');
         }
 
         function renderAll() {
