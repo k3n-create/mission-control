@@ -226,7 +226,7 @@ Every time we change the Supabase database (add table, add column, change schema
 
 ### Location:
 - `supabase/migrations/` - SQL migration files
-- Migration files are backed up to GitHub via the daily backup process
+- **Backup repo:** `k3n-create/Food-Tracker-Build` (push migrations here after commit)
 
 ---
 
