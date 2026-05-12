@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { readFile } from 'fs/promises';
-import { supabase } from './lib/supabase.js';
+import { supabase, supabaseAdmin } from './lib/supabase.js';
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -47,6 +47,44 @@ app.post('/api/tasks', async (req, res) => {
  if (error) throw error;
  res.status(200).json({ success: true });
  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// POST /api/integrations/save: Save delivery platform integration
+// Uses service_role key (supabaseAdmin) to bypass RLS for admin operations
+app.post('/api/integrations/save', async (req, res) => {
+ try {
+ const { client_id, platform_name, api_key_encrypted, merchant_id, is_master_account } = req.body;
+ 
+ if (!client_id || !platform_name) {
+ return res.status(400).json({ error: 'client_id and platform_name required' });
+ }
+ 
+ // Validate platform_name
+ const validPlatforms = ['doordash', 'ubereats', 'grubhub'];
+ if (!validPlatforms.includes(platform_name.toLowerCase())) {
+ return res.status(400).json({ error: 'platform_name must be doordash, ubereats, or grubhub' });
+ }
+ 
+ // Build record - only include provided fields (Partial Update Mandate)
+ const record = {
+ client_id,
+ platform_name: platform_name.toLowerCase(),
+ };
+ 
+ if (api_key_encrypted) record.api_key_encrypted = api_key_encrypted;
+ if (merchant_id) record.merchant_id = merchant_id;
+ if (is_master_account !== undefined) record.is_master_account = is_master_account;
+ 
+ // Use admin client to bypass RLS
+ const { data, error } = await supabaseAdmin
+ .from('delivery_platforms')
+ .upsert(record, { onConflict: 'client_id,platform_name' });
+ 
+ if (error) throw error;
+ res.status(200).json({ success: true, data });
+ } catch (error) { 
+ res.status(500).json({ error: error.message }); 
+ }
 });
 
 app.delete('/api/tasks/:id', async (req, res) => {
