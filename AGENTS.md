@@ -207,6 +207,29 @@ Think of it like a human reviewing their journal and updating their mental model
 
 The goal: Be helpful without being annoying. Check in a few times a day, do useful background work, but respect quiet time.
 
+## 🗄️ Supabase Migrations
+
+Every time we change the Supabase database (add table, add column, change schema), we MUST save that change as a SQL migration file.
+
+### Process:
+1. **Create migration file** in `supabase/migrations/` with format: `XXX_description.sql`
+   - Use sequential numbering (001, 002, etc.)
+   - Include date and description in comments at the top
+
+2. **Migration file should include:**
+   - CREATE TABLE / ALTER TABLE statements
+   - Index creations
+   - RLS policy updates
+   - Any other DDL statements
+
+3. **Commit & Push:** Always commit migration files with the code changes that depend on them
+
+### Location:
+- `supabase/migrations/` - SQL migration files
+- Migration files are backed up to GitHub via the daily backup process
+
+---
+
 ## Make It Yours
 
 This is a starting point. Add your own conventions, style, and rules as you figure out what works.
