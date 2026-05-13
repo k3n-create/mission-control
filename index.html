@@ -75,6 +75,10 @@
  </div>
 
 <script>
+ // API Base URL - supports VITE_API_URL env var for external deployments
+ const API_BASE = window.VITE_API_URL || window.__env__?.VITE_API_URL || '';
+ const API_ENDPOINT = API_BASE ? `${API_BASE}/api` : '';
+ 
  // SENTINEL: Intercepts browser crashes and reports to backend
  window.onerror = async function(msg, url, line, col, error) {
  const errorDetail = {
@@ -86,7 +90,7 @@
  };
 
  // Push the error directly to the API
- await fetch('/api/tasks', {
+ await fetch(API_ENDPOINT + '/tasks', {
  method: 'POST',
  headers: { 'Content-Type': 'application/json' },
  body: JSON.stringify({ tasks: [errorDetail] })
@@ -130,7 +134,7 @@
 
  async function fetchLatest() {
  try {
- const res = await fetch('/api/tasks');
+ const res = await fetch(API_ENDPOINT + '/tasks');
  tasks = await res.json();
  renderBoard();
  } catch (e) { console.error("Fetch Failure", e); }
@@ -159,7 +163,7 @@
  async function pushTruth() {
  manualLock = true;
  try {
- const res = await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tasks }) });
+ const res = await fetch(API_ENDPOINT + '/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tasks }) });
  if (res.ok) await fetchLatest();
  setTimeout(() => manualLock = false, 2000);
  } catch (e) { manualLock = false; }
@@ -191,7 +195,7 @@
  async function deleteTask() {
  const id = document.getElementById('editTaskId').value;
  if (confirm("TERMINATE MISSION?")) {
- await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+ await fetch(API_ENDPOINT + `/api/tasks/${id}`, { method: 'DELETE' });
  tasks = tasks.filter(x => x.id !== id);
  renderBoard(); closeEditModal();
  }
