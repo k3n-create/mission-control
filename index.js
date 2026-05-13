@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { readFile } from 'fs/promises';
 import { supabase, supabaseAdmin } from './lib/supabase.js';
+import { getMockStores, getMockSalesReport, getMockSalesHistory, isSimulationMode } from './simulation.js';
 
 // DoorDash Drive API v2 - Fetch stores from master account
 async function fetchDoorDashStores(apiKey, merchantId) {
@@ -90,6 +91,8 @@ const TEST_ID = '5f80e462-ddfb-45fe-874d-7b36463b26d6';
 const corsOptions = {
   origin: [
     'https://saas-production.lovable.app',
+    'https://*.lovableproject.com',
+    'https://*.lovable.app',
     'https://lovable.dev',
     'https://lovable.com',
     'https://*.lovable.dev',
@@ -160,6 +163,30 @@ app.post('/api/integrations/save', async (req, res) => {
  return res.status(400).json({ error: 'platform_name must be doordash, ubereats, or grubhub' });
  }
  
+ // Check for Simulation Mode activation
+ if (api_key_encrypted === 'KENNEDY_SIM') {
+   const record = {
+     client_id,
+     platform_name: platform_name.toLowerCase(),
+     is_master_account: is_master_account || false,
+     simulation_mode: true
+   };
+   
+   const { data, error } = await supabaseAdmin
+     .from('delivery_platforms')
+     .upsert(record, { onConflict: 'client_id,platform_name' })
+     .select();
+   
+   if (error) throw error;
+   
+   return res.status(200).json({ 
+     success: true, 
+     platform: data[0],
+     simulation_mode: true,
+     message: 'Simulation Mode activated! Use simulation=true with /api/stores and /api/reports/sales'
+   });
+ }
+ 
  // Build record - only include provided fields (Partial Update Mandate)
  const record = {
  client_id,
@@ -200,6 +227,43 @@ app.post('/api/integrations/save', async (req, res) => {
  });
  } catch (error) { 
  res.status(500).json({ error: error.message }); 
+ }
+});
+
+// GET /api/reports/sales: DoorDash-compliant sales report (simulation-enabled)
+app.get('/api/reports/sales', async (req, res) => {
+ try {
+   const { client_id, start_date, end_date, platform_name, simulation } = req.query;
+   
+   if (!client_id) {
+     return res.status(400).json({ error: 'client_id required' });
+   }
+   
+   // Check for simulation mode
+   const { data: platform } = await supabase
+     .from('delivery_platforms')
+     .select('simulation_mode, platform_name')
+     .eq('client_id', client_id)
+     .eq('simulation_mode', true)
+     .maybeSingle();
+   
+   const useSimulation = simulation === 'true' || platform?.simulation_mode || process.env.KENNEDY_SIM === 'true';
+   
+   if (useSimulation) {
+     const reportDate = start_date ? new Date(start_date) : new Date();
+     return res.status(200).json(getMockSalesReport(client_id, reportDate));
+   }
+   
+   // Non-simulation mode: fetch from database/API
+   const reportDate = start_date ? new Date(start_date) : new Date();
+   res.status(200).json({
+     client_id,
+     simulation_mode: false,
+     message: 'Use simulation=true for mock data',
+     report_date: reportDate.toISOString().split('T')[0]
+   });
+ } catch (error) {
+   res.status(500).json({ error: error.message });
  }
 });
 
@@ -282,6 +346,18 @@ app.get('/api/stores', async (req, res) => {
      return res.status(400).json({ error: 'client_id required' });
    }
    
+   // Check for simulation mode
+   const { data: platform } = await supabase
+     .from('delivery_platforms')
+     .select('simulation_mode, platform_name')
+     .eq('client_id', client_id)
+     .eq('simulation_mode', true)
+     .maybeSingle();
+   
+   if (platform?.simulation_mode) {
+     return res.status(200).json(getMockStores(client_id));
+   }
+   
    // If platform_name provided, get platform_id first
    let targetPlatformId = platform_id;
    if (platform_name && !platform_id) {
@@ -336,6 +412,33 @@ app.post('/api/stores/sync', async (req, res) => {
    if (error) throw error;
    if (!platform) {
      return res.status(404).json({ error: 'Platform not found' });
+   }
+   
+   // Simulation mode - return mock stores
+   if (platform.simulation_mode) {
+     const mockStores = getMockStores(client_id);
+     
+     // Optionally save to database
+     for (const store of mockStores) {
+       await supabaseAdmin
+         .from('stores')
+         .upsert({
+           client_id,
+           platform_id: platform.id,
+           platform_store_id: store.platform_store_id,
+           merchant_supplied_id: store.merchant_supplied_id,
+           store_name: store.store_name,
+           is_active: true,
+           metadata: store.metadata
+         }, { onConflict: 'platform_store_id' });
+     }
+     
+     return res.status(200).json({
+       success: true,
+       simulation_mode: true,
+       count: mockStores.length,
+       message: 'Synced 12 Kennedy Chicken stores (simulation mode)'
+     });
    }
    
    const result = await syncStoresForPlatform(
