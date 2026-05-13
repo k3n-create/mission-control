@@ -87,7 +87,21 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 const TEST_ID = '5f80e462-ddfb-45fe-874d-7b36463b26d6';
 
-app.use(cors());
+const corsOptions = {
+  origin: [
+    'https://saas-production.lovable.app',
+    'https://lovable.dev',
+    'https://lovable.com',
+    'https://*.lovable.dev',
+    'https://*.lovable.com',
+    'http://localhost:3000',
+    'http://localhost:5173'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // ROOT ROUTE: Serves the dashboard
