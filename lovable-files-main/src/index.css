@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* KFC Professional Aesthetic — ported 1:1 from legacy index.html.
+   All values in HSL so Tailwind tokens compose cleanly. */
+@layer base {
+  :root {
+    /* Brand */
+    --primary: 0 65% 51%;            /* #d32f2f */
+    --primary-dark: 0 73% 41%;       /* #b71c1c */
+    --primary-foreground: 0 0% 100%; /* #ffffff */
+
+    /* Neutrals */
+    --secondary: 0 0% 13%;           /* #212121 */
+    --secondary-foreground: 0 0% 100%;
+    --surface: 0 0% 100%;            /* #ffffff */
+    --surface-light: 210 17% 98%;    /* #f8f9fa */
+    --background: 210 17% 98%;
+    --foreground: 0 0% 13%;          /* #212121 (text) */
+    --muted: 210 17% 98%;
+    --muted-foreground: 210 9% 42%;  /* #6c757d */
+    --border: 210 14% 89%;           /* #dee2e6 */
+
+    /* Status */
+    --success: 123 46% 34%;          /* #2e7d32 */
+    --danger: 0 65% 47%;             /* #c62828 */
+
+    --radius: 8px;
+  }
+
+  * { @apply border-border; }
+  html, body, #root { height: 100%; }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    line-height: 1.6;
+  }
+}
+
+/* Reusable component classes mirroring the legacy CSS */
+@layer components {
+  .panel {
+    @apply bg-surface border border-border rounded-lg p-6 mb-6;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-semibold border border-border bg-surface-light text-foreground transition-colors;
+  }
+  .btn:hover { @apply bg-muted; }
+  .btn-primary {
+    @apply bg-primary text-primary-foreground border-primary;
+  }
+  .btn-primary:hover { @apply bg-primary-dark border-primary-dark; }
+  .btn-secondary {
+    @apply bg-transparent text-foreground border-border;
+  }
+  .btn-secondary:hover { @apply bg-surface-light; }
+
+  .nav-btn {
+    @apply px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground transition-colors bg-transparent border-none cursor-pointer;
+  }
+  .nav-btn:hover { @apply text-foreground bg-surface-light; }
+  .nav-btn.active { @apply bg-primary text-primary-foreground; }
+
+  .input {
+    @apply w-full px-3 py-2 border border-border rounded text-sm bg-surface text-foreground;
+  }
+
+  .health-light {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: #00ff00; box-shadow: 0 0 10px #00ff00;
+    animation: health-pulse 2s infinite;
+  }
+}
+
+@keyframes health-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}

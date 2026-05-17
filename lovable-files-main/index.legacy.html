@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agentic Labs | Autonomous Tracker</title>
+    <style>
+        /* KFC Professional Aesthetic */
+        :root {
+            --primary: #d32f2f;
+            --primary-dark: #b71c1c;
+            --secondary: #212121;
+            --surface: #ffffff;
+            --surface-light: #f8f9fa;
+            --text: #212121;
+            --text-muted: #6c757d;
+            --success: #2e7d32;
+            --danger: #c62828;
+            --border: #dee2e6;
+            --radius: 8px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background: var(--surface-light); color: var(--text); line-height: 1.6; padding-bottom: 50px; }
+
+        /* Header & Nav */
+        .header { background: #fff; padding: 1rem 2rem; border-bottom: 2px solid var(--primary); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .logo { font-size: 1.25rem; font-weight: 800; color: var(--text); letter-spacing: 0.5px; }
+        .logo span { color: var(--primary); }
+        .system-health { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; font-weight: 600; color: var(--text-muted); }
+        .health-light { width: 12px; height: 12px; background: #00ff00; border-radius: 50%; box-shadow: 0 0 10px #00ff00; animation: pulse 2s infinite; }
+        
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+        .nav-container { background: #fff; padding: 0.75rem 2rem; display: flex; gap: 0.5rem; border-bottom: 1px solid var(--border); }
+        .nav-btn { background: transparent; border: none; color: var(--text-muted); padding: 0.5rem 1rem; border-radius: var(--radius); cursor: pointer; font-weight: 500; transition: all 0.2s; }
+        .nav-btn:hover { color: var(--text); background: var(--surface-light); }
+        .nav-btn.active { background: var(--primary); color: #fff; }
+
+        /* Main Layout */
+        .main { max-width: 1200px; margin: 2rem auto; padding: 0 1.5rem; }
+        /* Use visibility/opacity to avoid layout flicker */
+        .view { position: absolute; opacity: 0; pointer-events: none; width: calc(100% - 3rem); max-width: 1200px; transition: opacity 0.18s ease; }
+        .view.active { position: relative; opacity: 1; pointer-events: auto; width: auto; }
+
+        /* Toast notifications */
+        .toast-container { position: fixed; top: 16px; right: 16px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+        .toast { background: #212529; color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; box-shadow: 0 6px 18px rgba(0,0,0,0.18); display: flex; align-items: center; gap: 8px; min-width: 220px; max-width: 90vw; transform: translateX(120%); opacity: 0; transition: transform 0.25s ease, opacity 0.25s ease; pointer-events: auto; }
+        .toast.show { transform: translateX(0); opacity: 1; }
+        .toast.success { background: #198754; }
+        .toast.error { background: #dc3545; }
+        .toast.info { background: #0d6efd; }
+        .toast .dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.9); box-shadow: 0 0 8px rgba(255,255,255,0.6); }
+
+        /* Row flash highlight on add/update */
+        @keyframes rowFlash { 0% { background: #fff3cd; } 100% { background: transparent; } }
+        .row-flash td { animation: rowFlash 1.6s ease; }
+
+        /* Live margin pill states */
+        .margin-pill { display: inline-block; padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 13px; transition: background 0.2s, color 0.2s; }
+        .margin-pill.good { background: #d1f7c4; color: #198754; }
+        .margin-pill.warn { background: #fff3cd; color: #fd7e14; }
+        .margin-pill.bad  { background: #f8d7da; color: #dc3545; }
+        .margin-pill.idle { background: #e9ecef; color: #6c757d; }
+
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            .header { padding: 0.75rem 1rem; flex-wrap: wrap; gap: 0.5rem; }
+            .logo { font-size: 1rem; }
+            .system-health { font-size: 0.75rem; }
+            .nav-container { padding: 0.5rem 0.75rem; gap: 0.25rem; overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
+            .nav-btn { padding: 0.5rem 0.75rem; font-size: 0.85rem; white-space: nowrap; flex-shrink: 0; }
+            .nav-container .nav-btn[onclick="clearAllData()"] { margin-left: 0 !important; }
+            .main { margin: 1rem auto; padding: 0 0.75rem; }
+            .view { width: calc(100% - 1.5rem); }
+            /* Dashboard summary cards: 2 columns on mobile */
+            #view-dashboard > div:nth-child(2) { grid-template-columns: repeat(2, 1fr) !important; }
+            /* Ingredients page: stack sidebar above main */
+            #view-ingredients > div { grid-template-columns: 1fr !important; }
+            #view-ingredients > div > div { padding: 0.75rem !important; }
+            /* Recipe builder: stack columns */
+            #view-recipe > div:nth-child(2) { grid-template-columns: 1fr !important; }
+            /* Settings: ensure single column */
+            .settings-grid { grid-template-columns: 1fr !important; }
+            /* Tables get horizontal scroll on small viewports */
+            table { display: block; overflow-x: auto; white-space: nowrap; }
+            /* Header buttons row */
+            #view-dashboard h1 { font-size: 18px !important; }
+            /* Ingredient add form: stack inputs */
+            #view-ingredients input, #view-ingredients select { min-width: 100% !important; }
+            #view-ingredients [style*="display: flex"][style*="flex-wrap: wrap"] { flex-direction: column; align-items: stretch !important; }
+            /* Recipe builder pricing grid */
+            #view-recipe [style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
+        }
+
+        /* Settings Page */
+        .settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
+        .settings-section { background: var(--surface-light); padding: 1.25rem; border-radius: var(--radius); }
+        .settings-section h3 { margin-bottom: 1rem; font-size: 1rem; font-weight: 600; color: var(--text); }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--text); }
+        .form-group input, .form-group select { width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.9rem; }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--primary); }
+        .help-text { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem; display: block; }
+        .btn-group { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+        /* Panels & Forms */
+        .panel { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: var(--shadow); }
+        .panel h2 { margin-bottom: 1rem; font-size: 1.1rem; color: var(--text); font-weight: 600; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; }
+        
+        .form-group { display: flex; gap: 1rem; margin-bottom: 1rem; align-items: center; flex-wrap: wrap; }
+        input, select { background: var(--surface-light); border: 1px solid var(--border); color: var(--text); padding: 0.75rem; border-radius: var(--radius); outline: none; flex: 1; min-width: 150px; }
+        input:focus, select:focus { border-color: var(--primary); }
+        optgroup { background: var(--surface); color: var(--primary); font-weight: bold; }
+        option { color: var(--text); }
+        
+        .btn { background: var(--surface-light); color: var(--text); border: 1px solid var(--border); padding: 0.75rem 1.5rem; border-radius: var(--radius); cursor: pointer; font-weight: 600; transition: 0.2s; white-space: nowrap; }
+        .btn:hover { background: #333; }
+        .btn-primary { background: var(--primary); border-color: var(--primary); }
+        .btn-primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
+        .btn-danger { background: transparent; color: #ff5252; border: 1px solid #ff5252; padding: 0.4rem 0.8rem; font-size: 0.85rem; }
+        .btn-danger:hover { background: #ff5252; color: #fff; }
+        .btn-secondary { background: transparent; color: #4dabf7; border: 1px solid #4dabf7; padding: 0.4rem 0.8rem; font-size: 0.85rem; }
+        .btn-secondary:hover { background: #4dabf7; color: #fff; }
+
+        /* Tables & Lists */
+        .table-container { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; text-align: left; margin-top: 1rem; }
+        th { padding: 1rem; border-bottom: 2px solid var(--border); color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; }
+        td { padding: 1rem; border-bottom: 1px solid var(--border); }
+        tr:hover td { background: var(--surface-light); }
+        
+        .category-tag { display: inline-block; background: var(--surface-light); padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-weight: 500; color: var(--text); border: 1px solid var(--border); }
+        .category-tag.meats { background: #ffebee; color: #c62828; border-color: #ffcdd2; }
+        .category-tag.breads { background: #fff3e0; color: #e65100; border-color: #ffe0b2; }
+        .category-tag.sauces { background: #e8f5e9; color: #2e7d32; border-color: #c8e6c9; }
+        .category-tag.drinks { background: #e3f2fd; color: #1565c0; border-color: #bbdefb; }
+        .category-tag.toppings { background: #f3e5f5; color: #7b1fa2; border-color: #e1bee7; }
+        .category-tag.sides { background: #fff8e1; color: #f57f17; border-color: #ffecb3; }
+        .category-tag.desserts { background: #fce4ec; color: #ad1457; border-color: #f48fb1; }
+
+        .money { font-family: monospace; font-size: 1.1rem; }
+        .good-margin { color: var(--success); font-weight: bold; }
+        .bad-margin { color: #ff5252; font-weight: bold; }
+
+        /* Volatility Widget (Disabled State) */
+        .volatility-widget { background: linear-gradient(145deg, #1a0f0f, #110505); border: 1px solid var(--primary-dark); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 2rem; opacity: 0.4; pointer-events: none; }
+        .volatility-widget label { display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 1rem; color: var(--text-muted); }
+        input[type="range"] { width: 100%; cursor: not-allowed; accent-color: var(--primary); filter: grayscale(100%); }
+        
+        .recipe-row { display: flex; gap: 1rem; margin-bottom: 0.5rem; background: var(--surface-light); padding: 1rem; border-radius: var(--radius); border: 1px dashed var(--border); }
+    </style>
+</head>
+<body>
+    <div class="toast-container" id="toast-container"></div>
+
+    <header class="header">
+        <div class="logo">🤖 AGENTIC LABS <span>| TRACKER</span></div>
+        <div class="system-health">
+            <div class="health-light"></div>
+            JARVIS ACTIVE 24/7
+        </div>
+    </header>
+
+    <div class="nav-container">
+        <button class="nav-btn active" data-target="view-dashboard">Dashboard</button>
+        <button class="nav-btn" data-target="view-ingredients">Ingredient Manager</button>
+        <button class="nav-btn" data-target="view-recipe" id="nav-recipe-btn">Recipe Builder</button>
+        <button class="nav-btn" data-target="view-settings">Settings</button>
+        <button class="nav-btn" style="margin-left: auto; border-color: #ff5252; color: #ff5252;" onclick="clearAllData()">Reset App Data</button>
+    </div>
+
+    <main class="main">
+        <div class="volatility-widget">
+            <label>
+                <span>Market Volatility Simulation (Disabled for Testing Phase)</span>
+                <span id="vol-label">100% (Baseline)</span>
+            </label>
+            <input type="range" id="vol-slider" min="50" max="200" value="100" step="5" disabled>
+        </div>
+
+        <div id="view-dashboard" class="view active">
+            <!-- Header -->
+            <div style="margin-bottom: 1.5rem;">
+                <h1 style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 20px; font-weight: 700; color: #212529; margin-bottom: 0.5rem;">Live Margin Intelligence</h1>
+                <p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 400; color: #6c757d; margin-bottom: 1.5rem;">Real-time food cost and margin tracking for every menu item</p>
+                <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-bottom: 1rem;">
+                    <button onclick="exportToCSV()" style="background: #fff; border: none; padding: 6px 12px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; color: #0d6efd; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        Export CSV
+                    </button>
+                    <button onclick="switchView('view-recipe')" style="background: #dc3545; border: none; padding: 6px 12px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 600; color: #fff; cursor: pointer; border-radius: 4px;">
+                        + Add Menu Item
+                    </button>
+                </div>
+            </div>
+
+            <!-- Summary Cards -->
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+                <!-- Total Items -->
+                <div style="background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                        <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; font-weight: 500; color: #6c757d; text-transform: uppercase; letter-spacing: 0.5px;">TOTAL ITEMS</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0d6efd" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                    </div>
+                    <div id="stat-total-items" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 24px; font-weight: 700; color: #212529;">0</div>
+                </div>
+                <!-- Critical Margin Alerts -->
+                <div style="background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                        <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; font-weight: 500; color: #6c757d; text-transform: uppercase; letter-spacing: 0.5px;">CRITICAL MARGIN ALERTS</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#198754" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    </div>
+                    <div id="stat-critical-alerts" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 24px; font-weight: 700; color: #212529;">0</div>
+                </div>
+                <!-- Avg POS Margin -->
+                <div style="background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                        <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; font-weight: 500; color: #6c757d; text-transform: uppercase; letter-spacing: 0.5px;">AVG POS MARGIN</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#198754" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                    </div>
+                    <div id="stat-avg-pos-margin" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 24px; font-weight: 700; color: #212529;">0%</div>
+                </div>
+                <!-- Avg Delivery Net -->
+                <div style="background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                        <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; font-weight: 500; color: #6c757d; text-transform: uppercase; letter-spacing: 0.5px;">AVG DELIVERY NET (25% FEE)</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6f42c1" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                    </div>
+                    <div id="stat-avg-delivery-margin" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 24px; font-weight: 700; color: #212529;">0%</div>
+                </div>
+            </div>
+
+            <!-- Menu Item Margins Table -->
+            <div style="background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 1.5rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid #dee2e6;">
+                    <h2 style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 600; color: #6c757d; text-transform: uppercase; letter-spacing: 0.5px;">Menu Item Margins</h2>
+                    <span id="commission-target-bar" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 12px; font-weight: 400; color: #6c757d;">Commission: 25% | Target margin: 65%</span>
+                </div>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr>
+                            <th style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; font-weight: 600; color: #6c757d; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; padding: 8px 10px; border-bottom: 1px solid #dee2e6;">MENU ITEM</th>
+                            <th style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; font-weight: 600; color: #6c757d; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; padding: 8px 10px; border-bottom: 1px solid #dee2e6;">COGS</th>
+                            <th style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; font-weight: 600; color: #6c757d; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; padding: 8px 10px; border-bottom: 1px solid #dee2e6;">POS PRICE</th>
+                            <th style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; font-weight: 600; color: #6c757d; text-transform: uppercase; letter-spacing: 0.5px; text-align: center; padding: 8px 10px; border-bottom: 1px solid #dee2e6;">POS MARGIN</th>
+                            <th style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; font-weight: 600; color: #6c757d; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; padding: 8px 10px; border-bottom: 1px solid #dee2e6;">DELIVERY PRICE</th>
+                            <th style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; font-weight: 600; color: #6c757d; text-transform: uppercase; letter-spacing: 0.5px; text-align: center; padding: 8px 10px; border-bottom: 1px solid #dee2e6;">NET AFTER 25% FEE</th>
+                            <th style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; font-weight: 600; color: #6c757d; text-transform: uppercase; letter-spacing: 0.5px; text-align: center; padding: 8px 10px; border-bottom: 1px solid #dee2e6;">ACTIONS</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dashboard-table-body">
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Key/Legend -->
+            <div style="display: flex; gap: 20px; padding: 10px 0 20px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 12px; font-weight: 400; color: #6c757d;">
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <span style="width: 8px; height: 8px; border-radius: 50%; background: #198754;"></span>
+                    <span>Good margin (above target)</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <span style="width: 8px; height: 8px; border-radius: 50%; background: #fd7e14;"></span>
+                    <span>Low margin (watch closely)</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <span style="width: 8px; height: 8px; border-radius: 50%; background: #dc3545;"></span>
+                    <span>Critical (below 20% threshold)</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-ingredients" class="view">
+            <div style="display: grid; grid-template-columns: 280px 1fr; gap: 1.5rem; align-items: start; background: #f7f9fb; min-height: 600px;">
+                
+                <!-- Left Sidebar: Ingredient Categories -->
+                <div style="background: #f7f9fb; padding: 1.5rem; padding-top: 0;">
+                    <h2 style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 16px; font-weight: 600; color: #1f2937; margin: 1.5rem 0 1rem 0; display: flex; align-items: center; gap: 8px;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        Ingredient Categories
+                    </h2>
+                    
+                    <div id="categories-menu-list" style="margin-bottom: 1rem; max-height: 280px; overflow-y: auto; padding-right: 8px;">
+                    </div>
+                    
+                    <div style="border-top: 1px solid #e5e7eb; padding-top: 1rem;">
+                        <label style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 10px; font-weight: 600; color: #1f2937; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 0.5rem;">ADD CATEGORY</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="cat-name" placeholder="e.g., Proteins" style="flex:1; padding: 12px; border: 1px solid #e5e7eb; border-radius: 8px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; background: #fff;">
+                            <input type="hidden" id="edit-cat-id">
+                            <button id="btn-save-cat" style="width: 40px; height: 40px; border-radius: 50%; border: none; background: #dc3545; color: #fff; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center;">+</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Ingredients -->
+                <div style="background: #f7f9fb; padding: 1.5rem; padding-left: 0; padding-top: 0;">
+                    <div style="background: #fff; border-radius: 8px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                        <!-- Header -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                            <h2 style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 20px; font-weight: 600; color: #1f2937; display: flex; align-items: center; gap: 8px;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+                                Ingredients
+                            </h2>
+                            <span id="ingredient-count" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; color: #6b7280;">0 items</span>
+                        </div>
+
+                        <!-- Add Ingredient Form -->
+                        <div style="margin-bottom: 1.5rem;">
+                            <label style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 12px; font-weight: 600; color: #1f2937; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 0.75rem;">ADD INGREDIENT</label>
+                            <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+                                <input type="text" id="ing-name" placeholder="Ingredient name" style="flex: 1; min-width: 180px; padding: 12px; border: 1px solid #e5e7eb; border-radius: 8px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; background: #fff;">
+                                <select id="ing-category" style="padding: 12px; border: 1px solid #e5e7eb; border-radius: 8px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; background: #fff; min-width: 140px;">
+                                </select>
+                                <input type="text" id="ing-unit" placeholder="each" style="width: 80px; padding: 12px; border: 1px solid #e5e7eb; border-radius: 8px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; background: #fff;">
+                                <div style="display: flex; align-items: center; gap: 4px;">
+                                    <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; color: #111827;">$</span>
+                                    <input type="number" id="ing-cost" placeholder="0.00" step="0.01" min="0" style="width: 80px; padding: 12px; border: 1px solid #e5e7eb; border-radius: 8px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; background: #fff;">
+                                    <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; color: #6b7280;">per unit</span>
+                                </div>
+                                <input type="hidden" id="edit-ing-id">
+                                <button id="btn-add-ing" style="padding: 12px 20px; background: #dc3545; border: none; border-radius: 8px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; font-weight: 600; color: #fff; cursor: pointer;">Add Item</button>
+                            </div>
+                        </div>
+
+                        <!-- Filter Buttons -->
+                        <div id="filter-buttons" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1.5rem;">
+                            <button class="filter-btn active" data-filter="all" style="padding: 8px 16px; background: #fff; border: 1px solid #e5e7eb; border-radius: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; font-weight: 500; color: #000; cursor: pointer;">All</button>
+                            <button class="filter-btn" data-filter="Meats & Proteins" style="padding: 8px 16px; background: #e5e7eb; border: 1px solid #e5e7eb; border-radius: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; font-weight: 500; color: #1f2937; cursor: pointer;">Meats & Proteins</button>
+                            <button class="filter-btn" data-filter="Breads & Buns" style="padding: 8px 16px; background: #e5e7eb; border: 1px solid #e5e7eb; border-radius: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; font-weight: 500; color: #1f2937; cursor: pointer;">Breads & Buns</button>
+                            <button class="filter-btn" data-filter="Sauces & Oils" style="padding: 8px 16px; background: #e5e7eb; border: 1px solid #e5e7eb; border-radius: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; font-weight: 500; color: #1f2937; cursor: pointer;">Sauces & Oils</button>
+                            <button class="filter-btn" data-filter="Drinks & Beverages" style="padding: 8px 16px; background: #e5e7eb; border: 1px solid #e5e7eb; border-radius: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; font-weight: 500; color: #1f2937; cursor: pointer;">Drinks & Beverages</button>
+                            <button class="filter-btn" data-filter="Sides & Extras" style="padding: 8px 16px; background: #e5e7eb; border: 1px solid #e5e7eb; border-radius: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; font-weight: 500; color: #1f2937; cursor: pointer;">Sides & Extras</button>
+                        </div>
+
+                        <!-- Table -->
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr>
+                                    <th style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">INGREDIENT</th>
+                                    <th style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">CATEGORY</th>
+                                    <th style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">UNIT</th>
+                                    <th style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; text-align: right; padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">COST</th>
+                                    <th style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; text-align: center; padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">ACTIONS</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ingredients-table-body">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div id="view-recipe" class="view">
+            <!-- Header -->
+            <div style="margin-bottom: 1.5rem;">
+                <a href="#" onclick="switchView('view-dashboard'); return false;" style="display: inline-flex; align-items: center; gap: 0.5rem; color: #6C757D; text-decoration: none; font-weight: 500; font-size: 14px; margin-bottom: 1rem;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                    Back to Overview
+                </a>
+                <div style="text-align: center; margin-bottom: 0.5rem;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#DC3545" stroke-width="2" style="display: inline-block; vertical-align: middle;"><path d="M12 2C8 2 6 4.5 6 7c0 2.5 2 4 2 4v7c0 1.1 1.8 2 4 2s4-.9 4-2v-7s2-1.5 2-4c0-2.5-2-5-6-5z"/><path d="M12 17v4"/><path d="M9 21h6"/></svg>
+                    <h1 style="display: inline-block; font-size: 24px; font-weight: 700; color: #212529; margin-left: 0.5rem; vertical-align: middle; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Recipe Builder</h1>
+                </div>
+                <p style="text-align: center; color: #6C757D; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Build your menu item from ingredients</p>
+            </div>
+
+            <!-- Two Column Layout -->
+            <div style="display: grid; grid-template-columns: 1fr 320px; gap: 1.5rem; align-items: start;">
+                <!-- Left Column -->
+                <div style="background: #fff; border: 1px solid #DEE2E6; border-radius: 8px; padding: 1.5rem; margin-bottom: 0;">
+                    <!-- Menu Item Name -->
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; font-weight: 700; color: #6C757D; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Menu Item Name</label>
+                        <input type="text" id="menu-name" placeholder="e.g., 6pc Wing Combo" style="width: 100%; font-size: 16px; padding: 1rem; background: #fff; border: 1px solid #DEE2E6; border-radius: 4px; color: #212529; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                    </div>
+
+                    <!-- Pricing Architecture -->
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; font-weight: 500; color: #495057; font-size: 16px; margin-bottom: 0.75rem; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Pricing Architecture</label>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div>
+                                <label style="display: block; font-weight: 700; color: #6C757D; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Point of Sale (In-Store)</label>
+                                <div style="position: relative;">
+                                    <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #6C757D; font-weight: 500; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">$</span>
+                                    <input type="number" id="menu-instore" placeholder="0.00" step="0.01" min="0" style="width: 100%; padding: 0.6rem 1rem; padding-left: 1.75rem; background: #fff; border: 1px solid #DEE2E6; border-radius: 4px; font-size: 16px; color: #000; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" oninput="updateLivePreview()">
+                                </div>
+                            </div>
+                            <div>
+                                <label style="display: block; font-weight: 700; color: #6C757D; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Delivery App (Online)</label>
+                                <div style="position: relative;">
+                                    <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #6C757D; font-weight: 500; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">$</span>
+                                    <input type="number" id="menu-online" placeholder="0.00" step="0.01" min="0" style="width: 100%; padding: 0.6rem 1rem; padding-left: 1.75rem; background: #fff; border: 1px solid #DEE2E6; border-radius: 4px; font-size: 16px; color: #000; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" oninput="updateLivePreview()">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bill of Materials -->
+                    <div style="margin-bottom: 1.5rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                            <label style="font-weight: 500; color: #495057; font-size: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Bill of Materials (BOM)</label>
+                            <span id="bom-component-count" style="color: #6C757D; font-size: 12px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">0 components</span>
+                        </div>
+                        <div id="recipe-container" style="background: #fff; border: 1px solid #DEE2E6; border-radius: 8px; padding: 1rem;">
+                        </div>
+                        <button class="btn" id="btn-add-recipe-row" style="width: 100%; margin-top: 0.5rem; border-style: dashed; background: transparent; color: #6C757D; font-weight: 500; font-size: 14px; border: none; padding: 0.5rem; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; cursor: pointer;" type="button">
+                            + Add Component
+                        </button>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div style="display: flex; gap: 1rem; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #DEE2E6;">
+                        <button class="btn btn-primary" id="btn-save-menu" style="flex: 2; padding: 1rem; font-size: 16px; font-weight: 500; background: #DC3545; border-color: #DC3545; height: 56px; border-radius: 8px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" type="button">Deploy to Menu</button>
+                        <button class="btn" id="btn-cancel-edit-menu" style="flex: 1; display: none; background: #fff; color: #6C757D; border: 1px solid #DEE2E6; height: 56px; border-radius: 8px; font-size: 16px; font-weight: 500; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" onclick="cancelEditMenu()" type="button">Cancel</button>
+                    </div>
+                </div>
+
+                <!-- Right Column - Live Cost Preview -->
+                <div style="background: #fff; border: 1px solid #DEE2E6; border-radius: 8px; padding: 1.5rem; margin-bottom: 0;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6C757D" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                        <h3 style="font-weight: 500; color: #495057; font-size: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Live Cost Preview</h3>
+                    </div>
+
+                    <!-- Total COGS -->
+                    <div style="margin-bottom: 1rem; padding: 1rem; background: #F8F9FA; border-radius: 8px; border: 1px solid #DEE2E6;">
+                        <label style="display: block; font-weight: 700; color: #6C757D; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Total COGS</label>
+                        <div id="live-cogs" style="font-size: 24px; font-weight: 700; color: #212529; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">$0.00</div>
+                    </div>
+
+                    <!-- POS Margin -->
+                    <div style="margin-bottom: 1rem; padding: 1rem; background: #F8F9FA; border-radius: 8px; border: 1px solid #DEE2E6;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <label style="font-weight: 700; color: #6C757D; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">POS Margin</label>
+                            <span id="live-pos-margin" class="margin-pill idle">—</span>
+                        </div>
+                        <input type="number" id="pos-margin-input" placeholder="Enter POS price" style="width: 100%; padding: 0.6rem 1rem; background: #fff; border: 1px solid #DEE2E6; border-radius: 4px; font-size: 14px; color: #212529; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" oninput="updateLivePreviewFromInputs()">
+                        <div id="live-pos-profit" style="margin-top: 0.4rem; font-size: 12px; color: #6C757D; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Profit: $0.00</div>
+                    </div>
+
+                    <!-- Delivery Net Margin -->
+                    <div style="padding: 1rem; background: #F8F9FA; border-radius: 8px; border: 1px solid #DEE2E6;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <label style="font-weight: 700; color: #6C757D; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Delivery Net Margin</label>
+                            <span id="live-delivery-margin" class="margin-pill idle">—</span>
+                        </div>
+                        <input type="number" id="delivery-margin-input" placeholder="Enter online price" style="width: 100%; padding: 0.6rem 1rem; background: #fff; border: 1px solid #DEE2E6; border-radius: 4px; font-size: 14px; color: #212529; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;" oninput="updateLivePreviewFromInputs()">
+                        <div id="live-delivery-profit" style="margin-top: 0.4rem; font-size: 12px; color: #6C757D; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">Net profit (after fee): $0.00</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="text-align: right; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #DEE2E6;">
+                <span style="display: inline-flex; align-items: center; gap: 0.25rem; font-size: 11px; color: #6C757D; background: #F8F9FA; padding: 0.25rem 0.5rem; border-radius: 4px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+                    Made with Replit
+                </span>
+            </div>
+        </div>
+
+        <div id="view-settings" class="view">
+            <div class="panel">
+                <h2>Settings</h2>
+                <div class="settings-grid">
+                    <div class="settings-section">
+                        <h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" style="margin-right: 8px;"><path d="M4 13.5V10a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-3.5"></path><path d="M6 17h12"></path></svg>General Preferences</h3>
+                        <div class="form-group">
+                            <label>Organization Name</label>
+                            <input type="text" id="business-name" placeholder="Your Restaurant Name" value="Kennedy Fried Chicken" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; font-weight: 500; color: #111827; background: #F8F9FA; border: 1px solid #DEE2E6; border-radius: 6px;">
+                            <span class="help-text">Displayed in the sidebar and reports</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Delivery Platform Commission (%)</label>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="number" id="default-commission" min="0" max="50" step="1" value="25" style="width: 60px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; font-weight: 500; color: #111827; background: #F8F9FA; border: 1px solid #DEE2E6; border-radius: 6px; padding: 8px 12px;">
+                                <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; color: #6C757D;">%</span>
+                                <div style="flex-grow: 1; height: 8px; background: linear-gradient(to right, #dc3545 0%, #dc3545 25%, #eee 25%, #eee 100%); border-radius: 4px; position: relative; cursor: pointer;">
+                                    <div style="position: absolute; top: 50%; left: 25%; transform: translate(-50%, -50%); width: 16px; height: 16px; background: #dc3545; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></div>
+                                </div>
+                            </div>
+                            <span class="help-text">The percentage your delivery platform (DoorDash, UberEats, etc.) takes from each order</span>
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" style="margin-right: 8px;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>Margin Alerts</h3>
+                        <div class="form-group">
+                            <label>Target Margin (%)</label>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="number" id="target-margin" min="0" max="100" step="1" value="65" style="width: 60px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; font-weight: 500; color: #111827; background: #F8F9FA; border: 1px solid #DEE2E6; border-radius: 6px; padding: 8px 12px;">
+                                <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; color: #6C757D;">%</span>
+                            </div>
+                            <span class="help-text">Your target profit margin for menu items</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Critical Margin Threshold (%)</label>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="number" id="margin-alert" min="0" max="100" step="5" value="20" style="width: 60px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; font-weight: 500; color: #111827; background: #F8F9FA; border: 1px solid #DEE2E6; border-radius: 6px; padding: 8px 12px;">
+                                <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; color: #6C757D;">%</span>
+                            </div>
+                            <span class="help-text">Warn when profit margin drops below this %</span>
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" style="margin-right: 8px;"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>Auto-Save</h3>
+                        <div class="form-group">
+                            <label>Auto-Save Interval</label>
+                            <select id="autosave-interval" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; color: #111827; background: #F8F9FA; border: 1px solid #DEE2E6; border-radius: 6px; padding: 8px 12px;">
+                                <option value="30000">Every 30 seconds</option>
+                                <option value="60000" selected>Every minute</option>
+                                <option value="120000">Every 2 minutes</option>
+                                <option value="0">Manual only</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h3>💾 Data Management</h3>
+                        <div class="form-group btn-group">
+                            <button class="btn btn-secondary" onclick="exportData()">Export Data</button>
+                            <button class="btn btn-secondary" onclick="document.getElementById('import-file').click()">Import Data</button>
+                            <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(this)">
+                        </div>
+                        <div class="form-group" style="margin-top: 1rem;">
+                            <button class="btn btn-danger" onclick="confirmClearAllData()">Clear All Data</button>
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top: 1.5rem; text-align: right;">
+                    <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // --- 1. State Management with LocalStorage ---
+        const STORAGE_KEY = 'agentic_labs_v2';
+        
+        const defaultState = {
+            volatility: 1.0,
+            categories: [
+                { id: 'cat_1', name: 'Meats & Proteins' },
+                { id: 'cat_2', name: 'Breads & Buns' },
+                { id: 'cat_3', name: 'Sauces & Oils' }
+            ],
+            ingredients: [
+                { id: 'ing_1', name: 'Sample: Chicken Wing', baseCost: 0.25, categoryId: 'cat_1' },
+                { id: 'ing_2', name: 'Sample: Cooking Oil (oz)', baseCost: 0.10, categoryId: 'cat_3' }
+            ],
+            menuItems: []
+        };
+
+        let appState = JSON.parse(localStorage.getItem(STORAGE_KEY)) || defaultState;
+        let currentEditingMenuId = null; // Tracks if we are editing a menu item
+
+        function saveState() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+        }
+
+        function clearAllData() {
+            if(confirm("Are you sure you want to delete all testing data and start fresh?")) {
+                localStorage.removeItem(STORAGE_KEY);
+                location.reload();
+            }
+        }
+
+        // --- 2. View Routing Logic ---
+        function switchView(targetId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById(targetId).classList.add('active');
+            
+            document.querySelectorAll('.nav-btn').forEach(b => {
+                b.classList.remove('active');
+                if (b.getAttribute('data-target') === targetId) {
+                    b.classList.add('active');
+                }
+            });
+            renderAll(); 
+            if (targetId === 'view-recipe') {
+                setTimeout(updateLivePreview, 100);
+            }
+        }
+
+        document.querySelectorAll('.nav-btn[data-target]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                // If they click away from Recipe Builder, cancel any active edit
+                if (e.target.getAttribute('data-target') !== 'view-recipe') {
+                    cancelEditMenu();
+                }
+                switchView(e.target.getAttribute('data-target'));
+            });
+        });
+
+        // --- 3. Category Manager Logic ---
+        document.getElementById('btn-save-cat').addEventListener('click', () => {
+            const nameInput = document.getElementById('cat-name');
+            const idInput = document.getElementById('edit-cat-id');
+            const name = nameInput.value.trim();
+            const cancelBtn = document.getElementById('btn-cancel-cat');
+
+            if (!name) { showToast("Enter a category name", "error"); return; }
+
+            const wasEdit = !!(idInput && idInput.value);
+            if (wasEdit) {
+                const cat = appState.categories.find(c => c.id === idInput.value);
+                if (cat) cat.name = name;
+            } else {
+                appState.categories.push({ id: 'cat_' + Date.now(), name: name });
+            }
+
+            nameInput.value = '';
+            if (idInput) idInput.value = '';
+            document.getElementById('btn-save-cat').textContent = "+";
+            if (cancelBtn) cancelBtn.style.display = 'none';
+            saveState();
+            renderAll();
+            showToast(wasEdit ? `Category updated` : `Category "${name}" added`, "success");
+        });
+
+        window.editCategory = (id) => {
+            const cat = appState.categories.find(c => c.id === id);
+            if (cat) {
+                document.getElementById('cat-name').value = cat.name;
+                document.getElementById('edit-cat-id').value = cat.id;
+                document.getElementById('btn-save-cat').textContent = "✓";
+                const cancelBtn = document.getElementById('btn-cancel-cat');
+                if (cancelBtn) cancelBtn.style.display = 'inline-block';
+            }
+        };
+
+        window.cancelEditCategory = () => {
+            document.getElementById('cat-name').value = '';
+            const idEl = document.getElementById('edit-cat-id');
+            if (idEl) idEl.value = '';
+            document.getElementById('btn-save-cat').textContent = "+";
+            const cancelBtn = document.getElementById('btn-cancel-cat');
+            if (cancelBtn) cancelBtn.style.display = 'none';
+        };
+
+        window.deleteCategory = (id) => {
+            if(confirm("Delete this category? Ingredients in this category will be marked as 'Uncategorized'.")) {
+                appState.categories = appState.categories.filter(c => c.id !== id);
+                appState.ingredients.forEach(ing => {
+                    if(ing.categoryId === id) ing.categoryId = null;
+                });
+                saveState();
+                renderAll();
+                showToast("Category deleted", "info");
+            }
+        };
+
+        // --- 4. Ingredient Manager Logic ---
+        function handleAddIngredient() {
+            const name = document.getElementById('ing-name').value;
+            const cost = document.getElementById('ing-cost').value;
+            const catId = document.getElementById('ing-category').value;
+            const unit = document.getElementById('ing-unit').value || 'each';
+            
+            if (!name || !cost) { showToast("Add a name and base cost", "error"); return; }
+
+            const editIdEl = document.getElementById('edit-ing-id');
+            const editId = editIdEl ? editIdEl.value : '';
+            let savedId;
+            let wasEdit = false;
+            if (editId) {
+                wasEdit = true;
+                const idx = appState.ingredients.findIndex(i => i.id === editId);
+                if (idx !== -1) {
+                    appState.ingredients[idx] = { ...appState.ingredients[idx], name, baseCost: parseFloat(cost), categoryId: catId || null, unit };
+                    savedId = editId;
+                }
+                if (editIdEl) editIdEl.value = '';
+                document.getElementById('btn-add-ing').textContent = 'Add Item';
+            } else {
+                savedId = 'ing_' + Date.now();
+                appState.ingredients.push({
+                    id: savedId,
+                    name: name,
+                    baseCost: parseFloat(cost),
+                    categoryId: catId || null,
+                    unit: unit
+                });
+            }
+
+            document.getElementById('ing-name').value = '';
+            document.getElementById('ing-cost').value = '';
+            document.getElementById('ing-unit').value = '';
+            flashItemId = savedId;
+            saveState();
+            renderAll();
+            showToast(wasEdit ? `Updated "${name}"` : `Added "${name}"`, "success");
+        }
+
+        // Attach the handler - use addEventListener for reliability
+        var btnAddIng = document.getElementById('btn-add-ing');
+        if (btnAddIng) {
+            btnAddIng.onclick = handleAddIngredient;
+            // Also add as backup
+            btnAddIng.addEventListener('click', handleAddIngredient);
+        }
+
+        window.editIngredient = (id) => {
+            const ing = appState.ingredients.find(i => i.id === id);
+            if (!ing) return;
+            
+            document.getElementById('edit-ing-id').value = ing.id;
+            document.getElementById('ing-name').value = ing.name;
+            document.getElementById('ing-cost').value = ing.baseCost;
+            document.getElementById('ing-category').value = ing.categoryId;
+            document.getElementById('ing-unit').value = ing.unit || 'each';
+            
+            document.getElementById('btn-add-ing').textContent = 'Update';
+            
+            document.getElementById('ing-name').focus();
+        };
+
+        window.updateIngredient = (id) => {
+            const name = document.getElementById('ing-name').value.trim();
+            const cost = parseFloat(document.getElementById('ing-cost').value) || 0;
+            const categoryId = document.getElementById('ing-category').value;
+            
+            if (!name) return alert('Please enter ingredient name');
+            
+            const idx = appState.ingredients.findIndex(i => i.id === id);
+            if (idx !== -1) {
+                appState.ingredients[idx] = { ...appState.ingredients[idx], name, baseCost: cost, categoryId };
+                saveState();
+                renderAll();
+            }
+            
+            // Reset form
+            document.getElementById('ing-name').value = '';
+            document.getElementById('ing-cost').value = '';
+            document.getElementById('ing-category').value = '';
+            document.getElementById('btn-add-ing').textContent = 'Add Ingredient';
+            document.getElementById('btn-add-ing').onclick = addIngredient;
+        };
+
+        window.deleteIngredient = (id) => {
+            const ing = appState.ingredients.find(i => i.id === id);
+            const name = ing ? ing.name : 'Ingredient';
+            appState.ingredients = appState.ingredients.filter(ing => ing.id !== id);
+            appState.menuItems.forEach(item => {
+                item.recipe = item.recipe.filter(r => r.ingId !== id);
+            });
+            saveState();
+            renderAll();
+            showToast(`Deleted "${name}"`, "info");
+        };
+
+        // --- 5. Recipe Builder Logic ---
+        const recipeContainer = document.getElementById('recipe-container');
+
+        // Helper function to build the grouped dropdown HTML
+        function getGroupedIngredientOptions(selectedId = null) {
+            let html = `<option value="" disabled ${!selectedId ? 'selected' : ''}>Select Ingredient...</option>`;
+            
+            // Group ingredients by category
+            const grouped = {};
+            appState.categories.forEach(cat => grouped[cat.id] = { name: cat.name, items: [] });
+            grouped['uncategorized'] = { name: 'Uncategorized', items: [] };
+
+            appState.ingredients.forEach(ing => {
+                if (ing.categoryId && grouped[ing.categoryId]) {
+                    grouped[ing.categoryId].items.push(ing);
+                } else {
+                    grouped['uncategorized'].items.push(ing);
+                }
+            });
+
+            // Build optgroups
+            for (const key in grouped) {
+                if (grouped[key].items.length > 0) {
+                    html += `<optgroup label="${grouped[key].name}">`;
+                    grouped[key].items.forEach(ing => {
+                        const isSelected = ing.id === selectedId ? 'selected' : '';
+                        html += `<option value="${ing.id}" ${isSelected}>${ing.name} ($${ing.baseCost.toFixed(2)})</option>`;
+                    });
+                    html += `</optgroup>`;
+                }
+            }
+            return html;
+        }
+        
+        window.addRecipeRow = (selectedIngId = null, qty = '') => {
+            if (appState.ingredients.length === 0) {
+                showToast("Add an ingredient first", "error");
+                return;
+            }
+
+            const row = document.createElement('div');
+            row.className = 'recipe-row';
+            row.innerHTML = `
+                <select class="recipe-ing-select" style="flex: 2;" onchange="updateLivePreview()">${getGroupedIngredientOptions(selectedIngId)}</select>
+                <input type="number" class="recipe-qty-input" placeholder="Qty" min="0.1" step="0.1" value="${qty}" style="flex: 1; width: 80px;" oninput="updateLivePreview()">
+                <button class="btn btn-danger" onclick="this.parentElement.remove(); updateLivePreview();" style="padding: 0.5rem 0.75rem;">✕</button>
+            `;
+            recipeContainer.appendChild(row);
+            updateLivePreview();
+        };
+
+        document.getElementById('btn-add-recipe-row').addEventListener('click', () => addRecipeRow());
+
+        document.getElementById('btn-save-menu').addEventListener('click', () => {
+            const name = document.getElementById('menu-name').value;
+            const inStore = document.getElementById('menu-instore').value;
+            const online = document.getElementById('menu-online').value;
+
+            if (!name || !inStore || !online) { showToast("Fill in name and both prices", "error"); return; }
+
+            const recipeRows = document.querySelectorAll('.recipe-row');
+            let newRecipe = [];
+
+            recipeRows.forEach(row => {
+                const ingId = row.querySelector('.recipe-ing-select').value;
+                const qty = row.querySelector('.recipe-qty-input').value;
+                if (ingId && qty && parseFloat(qty) > 0) {
+                    newRecipe.push({ ingId: ingId, qty: parseFloat(qty) });
+                }
+            });
+
+            if (newRecipe.length === 0) { showToast("Add at least one ingredient with a quantity", "error"); return; }
+
+            let savedId;
+            const wasEdit = !!currentEditingMenuId;
+            if (currentEditingMenuId) {
+                const item = appState.menuItems.find(m => m.id === currentEditingMenuId);
+                if(item) {
+                    item.name = name;
+                    item.inStorePrice = parseFloat(inStore);
+                    item.onlinePrice = parseFloat(online);
+                    item.recipe = newRecipe;
+                    savedId = item.id;
+                }
+            } else {
+                savedId = 'menu_' + Date.now();
+                appState.menuItems.push({
+                    id: savedId,
+                    name: name,
+                    inStorePrice: parseFloat(inStore),
+                    onlinePrice: parseFloat(online),
+                    recipe: newRecipe
+                });
+            }
+
+            flashItemId = savedId;
+            saveState();
+            cancelEditMenu();
+            switchView('view-dashboard');
+            showToast(wasEdit ? `"${name}" updated` : `"${name}" deployed to menu`, "success");
+        });
+
+        // Edit Menu Item Logic
+        window.editMenuItem = (id) => {
+            const item = appState.menuItems.find(m => m.id === id);
+            if (!item) return;
+
+            currentEditingMenuId = id;
+            
+            // Update UI to reflect Edit Mode
+            document.getElementById('btn-save-menu').textContent = "Update Deployment";
+            document.getElementById('btn-cancel-edit-menu').style.display = "inline-block";
+            document.getElementById('nav-recipe-btn').textContent = "Edit Item";
+
+            // Populate Form
+            document.getElementById('menu-name').value = item.name;
+            document.getElementById('menu-instore').value = item.inStorePrice;
+            document.getElementById('menu-online').value = item.onlinePrice;
+            
+            // Populate Recipe Rows
+            recipeContainer.innerHTML = '';
+            item.recipe.forEach(r => addRecipeRow(r.ingId, r.qty));
+
+            setTimeout(updateLivePreview, 150);
+            switchView('view-recipe');
+        };
+
+        window.cancelEditMenu = () => {
+            currentEditingMenuId = null;
+            document.getElementById('btn-save-menu').textContent = "Deploy to Menu";
+            document.getElementById('btn-cancel-edit-menu').style.display = "none";
+            document.getElementById('nav-recipe-btn').textContent = "Recipe Builder";
+            
+            document.getElementById('menu-name').value = '';
+            document.getElementById('menu-instore').value = '';
+            document.getElementById('menu-online').value = '';
+            recipeContainer.innerHTML = '';
+            updateLivePreview();
+        };
+
+        window.deleteMenuItem = (id) => {
+            if(confirm("Delete this menu item?")) {
+                const item = appState.menuItems.find(m => m.id === id);
+                const name = item ? item.name : 'Item';
+                appState.menuItems = appState.menuItems.filter(m => m.id !== id);
+                saveState();
+                renderAll();
+                showToast(`Deleted "${name}"`, "info");
+            }
+        };
+
+        // --- 6. Math & Rendering Engine ---
+        function calculateRecipeCost(recipeArray) {
+            return recipeArray.reduce((total, item) => {
+                const ing = appState.ingredients.find(i => i.id === item.ingId);
+                if (ing) {
+                    const scaledCost = ing.baseCost * appState.volatility;
+                    return total + (scaledCost * item.qty);
+                }
+                return total;
+            }, 0);
+        }
+
+        // Live Cost Preview updater
+        function updateLivePreview() {
+            // Get current recipe from DOM
+            const recipeRows = document.querySelectorAll('.recipe-row');
+            let currentRecipe = [];
+            recipeRows.forEach(row => {
+                const ingId = row.querySelector('.recipe-ing-select')?.value;
+                const qty = row.querySelector('.recipe-qty-input')?.value;
+                if (ingId && qty && parseFloat(qty) > 0) {
+                    currentRecipe.push({ ingId: ingId, qty: parseFloat(qty) });
+                }
+            });
+
+
+            const cogs = calculateRecipeCost(currentRecipe);
+            
+            // Get prices from main inputs
+            const inStorePrice = parseFloat(document.getElementById('menu-instore')?.value) || 0;
+            const onlinePrice = parseFloat(document.getElementById('menu-online')?.value) || 0;
+            
+            // Get prices from sidebar inputs
+            const posSidebarPrice = parseFloat(document.getElementById('pos-margin-input')?.value) || 0;
+            const deliverySidebarPrice = parseFloat(document.getElementById('delivery-margin-input')?.value) || 0;
+            
+            // Use sidebar input if provided, otherwise use main input
+            const posPrice = posSidebarPrice || inStorePrice;
+            const onlinePriceFinal = deliverySidebarPrice || onlinePrice;
+
+            // Update COGS display
+            const cogsEl = document.getElementById('live-cogs');
+            if (cogsEl) cogsEl.textContent = '$' + cogs.toFixed(2);
+
+            // Update component count
+            const countEl = document.getElementById('bom-component-count');
+            if (countEl) countEl.textContent = currentRecipe.length + ' component' + (currentRecipe.length !== 1 ? 's' : '');
+
+            // Live margin pills
+            const settings = JSON.parse(localStorage.getItem('agentic-settings') || '{}');
+            const target = settings.targetMargin || 65;
+            const commission = (settings.defaultCommission || 25) / 100;
+
+            const setPill = (pillId, profitId, price, isDelivery) => {
+                const pill = document.getElementById(pillId);
+                const profitEl = document.getElementById(profitId);
+                if (!pill) return;
+                const netRevenue = isDelivery ? price * (1 - commission) : price;
+                if (!price || price <= 0) {
+                    pill.className = 'margin-pill idle';
+                    pill.textContent = '—';
+                    if (profitEl) profitEl.textContent = isDelivery ? 'Net profit (after fee): $0.00' : 'Profit: $0.00';
+                    return;
+                }
+                const profit = netRevenue - cogs;
+                const margin = (profit / netRevenue) * 100;
+                pill.textContent = margin.toFixed(1) + '%';
+                pill.className = 'margin-pill ' + (margin >= target ? 'good' : (margin >= 20 ? 'warn' : 'bad'));
+                if (profitEl) profitEl.textContent = (isDelivery ? 'Net profit (after fee): $' : 'Profit: $') + profit.toFixed(2);
+            };
+            setPill('live-pos-margin', 'live-pos-profit', posPrice, false);
+            setPill('live-delivery-margin', 'live-delivery-profit', onlinePriceFinal, true);
+        }
+
+        // --- Toast notifications ---
+        function showToast(message, type) {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const t = document.createElement('div');
+            t.className = 'toast ' + (type || 'success');
+            t.innerHTML = '<span class="dot"></span><span>' + message + '</span>';
+            container.appendChild(t);
+            requestAnimationFrame(() => t.classList.add('show'));
+            setTimeout(() => {
+                t.classList.remove('show');
+                setTimeout(() => t.remove(), 300);
+            }, 2400);
+        }
+
+        // Track last-changed item id to flash its row on next render
+        let flashItemId = null;
+        
+        function updateLivePreviewFromInputs() {
+            updateLivePreview();
+        }
+
+        function renderAll() {
+            renderCategories();
+            renderIngredients();
+            renderDashboard();
+            updateIngredientDropdown();
+            // Clear the one-shot flash marker so subsequent renders don't re-highlight
+            if (flashItemId) setTimeout(() => { flashItemId = null; }, 50);
+        }
+
+        function renderCategories() {
+            const container = document.getElementById('categories-menu-list');
+            if (!container) return;
+            
+            container.innerHTML = '';
+            if (appState.categories.length === 0) {
+                container.innerHTML = '<p style="color: var(--text-muted); font-size: 0.9rem; text-align: center;">No categories yet. Add one below!</p>';
+                return;
+            }
+            
+            appState.categories.forEach(cat => {
+                container.innerHTML += `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.75rem; background: var(--surface-light); border-radius: 6px; margin-bottom: 0.5rem; border: 1px solid var(--border);">
+                        <span style="font-weight: 500;">${cat.name}</span>
+                        <div style="display: flex; gap: 0.4rem;">
+                            <button class="btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" onclick="editCategory('${cat.id}')">✎ Edit</button>
+                            <button class="btn-danger" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" onclick="deleteCategory('${cat.id}')">✕</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function updateIngredientDropdown() {
+            const select = document.getElementById('ing-category');
+            if(select) {
+                select.innerHTML = '<option value="">No Category (Uncategorized)</option>' + 
+                    appState.categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+            }
+        }
+
+        let currentIngredientFilter = 'all';
+
+        function renderIngredients() {
+            const tbody = document.getElementById('ingredients-table-body');
+            tbody.innerHTML = '';
+            
+            // Filter ingredients based on current filter
+            let filteredIngredients = appState.ingredients;
+            if (currentIngredientFilter !== 'all') {
+                filteredIngredients = appState.ingredients.filter(ing => {
+                    const cat = appState.categories.find(c => c.id === ing.categoryId);
+                    return cat && cat.name === currentIngredientFilter;
+                });
+            }
+
+            // Update item count
+            document.getElementById('ingredient-count').textContent = filteredIngredients.length + ' items';
+            
+            if (filteredIngredients.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: #6b7280; padding: 40px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px;">No ingredients found.</td></tr>`;
+                return;
+            }
+
+            filteredIngredients.forEach(ing => {
+                const cat = appState.categories.find(c => c.id === ing.categoryId);
+                const catName = cat ? cat.name : 'Uncategorized';
+                const unit = ing.unit || 'each';
+                
+                const flashClass = (flashItemId === ing.id) ? 'row-flash' : '';
+                tbody.innerHTML += `
+                    <tr class="${flashClass}" style="border-bottom: 1px solid #e5e7eb;">
+                        <td style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; font-weight: 500; color: #111827; padding: 12px;">${ing.name}</td>
+                        <td style="padding: 12px;"><span style="display: inline-block; background: #e5e7eb; padding: 4px 10px; border-radius: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 12px; font-weight: 500; color: #1f2937;">${catName}</span></td>
+                        <td style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; color: #111827; padding: 12px;">${unit}</td>
+                        <td style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; font-weight: 500; color: #111827; padding: 12px; text-align: right;">$${ing.baseCost.toFixed(2)}</td>
+                        <td style="text-align: center; padding: 12px;">
+                            <button onclick="editIngredient('${ing.id}')" style="background: #fff; border: 1px solid #e5e7eb; padding: 4px 10px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 12px; color: #111827; cursor: pointer; margin-right: 4px;">Edit</button>
+                            <button onclick="deleteIngredient('${ing.id}')" style="background: #fff; border: 1px solid #e5e7eb; padding: 4px 10px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 12px; color: #dc3545; cursor: pointer;">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        // Filter button click handlers
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    // Update active state
+                    document.querySelectorAll('.filter-btn').forEach(b => {
+                        b.style.background = '#e5e7eb';
+                        b.style.color = '#1f2937';
+                    });
+                    this.style.background = '#fff';
+                    this.style.color = '#000';
+                    
+                    // Set filter
+                    currentIngredientFilter = this.getAttribute('data-filter');
+                    renderIngredients();
+                });
+            });
+        });
+
+        function renderDashboard() {
+            const tbody = document.getElementById('dashboard-table-body');
+            tbody.innerHTML = '';
+
+            if (appState.menuItems.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color: #6c757d; padding: 40px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px;">No menu items built yet. Use the Recipe Builder to start.</td></tr>`;
+                return;
+            }
+
+            // Calculate stats
+            let totalItems = appState.menuItems.length;
+            let criticalAlerts = 0;
+            let totalPosMargin = 0;
+            let totalDeliveryMargin = 0;
+
+            appState.menuItems.forEach(menu => {
+                const cost = calculateRecipeCost(menu.recipe);
+                const inStoreMargin = (menu.inStorePrice > 0) ? ((menu.inStorePrice - cost) / menu.inStorePrice) * 100 : 0;
+                const onlineNet = menu.onlinePrice * 0.75;
+                const onlineMargin = (onlineNet > 0) ? ((onlineNet - cost) / onlineNet) * 100 : 0;
+                
+                totalPosMargin += inStoreMargin;
+                totalDeliveryMargin += onlineMargin;
+                
+                if (inStoreMargin < 20 || onlineMargin < 20) {
+                    criticalAlerts++;
+                }
+            });
+
+            const avgPosMargin = totalItems > 0 ? (totalPosMargin / totalItems) : 0;
+            const avgDeliveryMargin = totalItems > 0 ? (totalDeliveryMargin / totalItems) : 0;
+
+            // Update summary cards
+            document.getElementById('stat-total-items').textContent = totalItems;
+            document.getElementById('stat-critical-alerts').textContent = criticalAlerts;
+            document.getElementById('stat-avg-pos-margin').textContent = avgPosMargin.toFixed(1) + '%';
+            document.getElementById('stat-avg-delivery-margin').textContent = avgDeliveryMargin.toFixed(1) + '%';
+
+            // Update commission/target bar
+            const settings = JSON.parse(localStorage.getItem('agentic-settings') || '{}');
+            const commission = settings.defaultCommission || 25;
+            const targetMargin = settings.targetMargin || 65;
+            document.getElementById('commission-target-bar').textContent = `Commission: ${commission}% | Target margin: ${targetMargin}%`;
+
+            // Render rows
+            appState.menuItems.forEach((menu, index) => {
+                const cost = calculateRecipeCost(menu.recipe);
+                
+                const inStoreProfit = menu.inStorePrice - cost;
+                const inStoreMargin = (menu.inStorePrice > 0) ? (inStoreProfit / menu.inStorePrice) * 100 : 0;
+                
+                const onlineNet = menu.onlinePrice * 0.75;
+                const onlineProfit = onlineNet - cost;
+                const onlineMargin = (onlineNet > 0) ? (onlineProfit / onlineNet) * 100 : 0;
+
+                // Determine margin status colors
+                const target = settings.targetMargin || 65;
+                const posColor = inStoreMargin >= target ? '#198754' : (inStoreMargin >= 20 ? '#fd7e14' : '#dc3545');
+                const deliveryColor = onlineMargin >= target ? '#198754' : (onlineMargin >= 20 ? '#fd7e14' : '#dc3545');
+                const posBg = inStoreMargin >= target ? '#d1f7c4' : (inStoreMargin >= 20 ? '#fff3cd' : '#f8d7da');
+                const deliveryBg = onlineMargin >= target ? '#d1f7c4' : (onlineMargin >= 20 ? '#fff3cd' : '#f8d7da');
+
+                const rowBg = index % 2 === 0 ? '#fff' : '#f8f9fa';
+
+                const flashClass = (flashItemId === menu.id) ? 'row-flash' : '';
+                tbody.innerHTML += `
+                    <tr class="${flashClass}" style="background: ${rowBg}; border-bottom: 1px solid #dee2e6;">
+                        <td style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 500; color: #212529; padding: 8px 10px;">${menu.name}</td>
+                        <td style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 400; color: #212529; padding: 8px 10px;">$${cost.toFixed(2)}</td>
+                        <td style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 400; color: #212529; padding: 8px 10px;">$${menu.inStorePrice.toFixed(2)}</td>
+                        <td style="text-align: center; padding: 8px 10px;">
+                            <div style="display: inline-block; background: ${posBg}; border-radius: 4px; padding: 4px 8px; text-align: center;">
+                                <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 600; color: ${posColor};">${inStoreMargin.toFixed(1)}%</span>
+                                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; font-weight: 400; color: #6c757d;">$${inStoreProfit.toFixed(2)} profit</div>
+                            </div>
+                        </td>
+                        <td style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 400; color: #212529; padding: 8px 10px;">$${menu.onlinePrice.toFixed(2)}</td>
+                        <td style="text-align: center; padding: 8px 10px;">
+                            <div style="display: inline-block; background: ${deliveryBg}; border-radius: 4px; padding: 4px 8px; text-align: center;">
+                                <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 600; color: ${deliveryColor};">${onlineMargin.toFixed(1)}%</span>
+                                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; font-weight: 400; color: #6c757d;">$${onlineProfit.toFixed(2)} net</div>
+                            </div>
+                        </td>
+                        <td style="text-align: center; padding: 8px 10px;">
+                            <button onclick="editMenuItem('${menu.id}')" style="background: #fff; border: 1px solid #dee2e6; padding: 3px 8px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 12px; color: #212529; cursor: pointer; margin-right: 4px;">Edit</button>
+                            <button onclick="deleteMenuItem('${menu.id}')" style="background: #fff; border: 1px solid #dee2e6; padding: 3px 8px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 12px; color: #dc3545; cursor: pointer;">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function exportToCSV() {
+            if (appState.menuItems.length === 0) {
+                alert('No menu items to export.');
+                return;
+            }
+            let csv = 'Menu Item,COGS,POS Price,POS Margin,POS Profit,Delivery Price,Delivery Net (25% Fee),Delivery Margin,Delivery Profit\n';
+            appState.menuItems.forEach(menu => {
+                const cost = calculateRecipeCost(menu.recipe);
+                const inStoreMargin = (menu.inStorePrice > 0) ? ((menu.inStorePrice - cost) / menu.inStorePrice) * 100 : 0;
+                const inStoreProfit = menu.inStorePrice - cost;
+                const onlineNet = menu.onlinePrice * 0.75;
+                const onlineMargin = (onlineNet > 0) ? ((onlineNet - cost) / onlineNet) * 100 : 0;
+                const onlineProfit = onlineNet - cost;
+                csv += `"${menu.name}",$${cost.toFixed(2)},$${menu.inStorePrice.toFixed(2)},${inStoreMargin.toFixed(1)}%,$${inStoreProfit.toFixed(2)},$${menu.onlinePrice.toFixed(2)},$${onlineNet.toFixed(2)},${onlineMargin.toFixed(1)}%,$${onlineProfit.toFixed(2)}\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'menu-items-margins.csv';
+            a.click();
+        }
+
+        // --- 7. Initial Boot ---
+        renderAll();
+
+        // --- 8. Settings Functions ---
+        function saveSettings() {
+            const settings = {
+                defaultCommission: parseInt(document.getElementById('default-commission').value),
+                targetMargin: parseInt(document.getElementById('target-margin').value),
+                businessName: document.getElementById('business-name').value,
+                marginAlert: parseInt(document.getElementById('margin-alert').value),
+                autosaveInterval: parseInt(document.getElementById('autosave-interval').value)
+            };
+            localStorage.setItem('agentic-settings', JSON.stringify(settings));
+            alert('Settings saved successfully!');
+        }
+
+        function loadSettings() {
+            const saved = localStorage.getItem('agentic-settings');
+            if (saved) {
+                const settings = JSON.parse(saved);
+                document.getElementById('default-commission').value = settings.defaultCommission || 25;
+                document.getElementById('target-margin').value = settings.targetMargin || 65;
+                document.getElementById('business-name').value = settings.businessName || 'Kennedy Fried Chicken';
+                document.getElementById('margin-alert').value = settings.marginAlert || 20;
+                document.getElementById('autosave-interval').value = settings.autosaveInterval || 60000;
+            }
+        }
+
+        function exportData() {
+            const data = { ingredients: appState.ingredients, menuItems: appState.menuItems, settings: JSON.parse(localStorage.getItem('agentic-settings') || '{}') };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'agentic-tracker-backup.json';
+            a.click();
+        }
+
+        function importData(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.ingredients) appState.ingredients = data.ingredients;
+                    if (data.menuItems) appState.menuItems = data.menuItems;
+                    renderAll();
+                    alert('Data imported successfully!');
+                } catch (err) {
+                    alert('Error importing data: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function confirmClearAllData() {
+            if (confirm('Are you sure you want to delete ALL data? This cannot be undone!')) {
+                localStorage.clear();
+                appState.ingredients = [];
+                appState.menuItems = [];
+                renderAll();
+                alert('All data cleared.');
+            }
+        }
+
+        // Load settings on startup
+        loadSettings();
+
+    </script>
+</body>
+</html>
